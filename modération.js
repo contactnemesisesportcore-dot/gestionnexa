@@ -1,13 +1,5 @@
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-    ],
-    partials: [Partials.Channel],
-});
+const { Client } = require('discord.js');
+const client = require('./index.js'); // On utilise le client déjà créé dans index.js
 
 // --- CONFIGURATION DES SALONS DE LOG ---
 const logChannels = {
@@ -90,7 +82,7 @@ client.on('guildUpdate', async (oldGuild, newGuild) => {
 
 // --- CREATION MASSIVE DE SALONS ---
 client.on('channelCreate', async channel => {
-    const userId = channel.guild.ownerId; // À ajuster si possible pour détecter qui crée
+    const userId = channel.guild.ownerId; // Ajustable pour détecter le créateur réel
     const now = Date.now();
     const channels = channelTracker.get(userId) || [];
     const updated = channels.filter(ts => now - ts < 3600000);
@@ -106,7 +98,7 @@ client.on('channelCreate', async channel => {
 
 // --- CREATION MASSIVE DE RÔLES ---
 client.on('roleCreate', async role => {
-    const userId = role.guild.ownerId; // À ajuster si possible pour détecter qui crée
+    const userId = role.guild.ownerId; // Ajustable pour détecter le créateur réel
     const now = Date.now();
     const roles = roleTracker.get(userId) || [];
     const updated = roles.filter(ts => now - ts < 3600000);
