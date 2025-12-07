@@ -35,7 +35,6 @@ https://discord.com/channels/1443299228020506779/1443299714744451233
 Et si tu souhaites nous rejoindre ou autre, crée un ticket :
 https://discord.com/channels/1443299228020506779/1443299733392199871
 
-Cordialement <@1398784567946645545>
 Passe une excellente journée sur le serveur !`;
 
         channel.send(msg);
