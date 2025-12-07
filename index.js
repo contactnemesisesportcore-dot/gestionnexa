@@ -18,21 +18,22 @@ const client = new Client({
 // --- COLLECTIONS POUR LES EVENTS ---
 client.events = new Collection();
 
-// --- CHARGEMENT DES EVENTS ---
-const eventsFolder = __dirname;
-const eventFiles = fs.readdirSync(eventsFolder).filter(file => file.endsWith(".js") && file !== "index.js");
-
-for (const file of eventFiles) {
-    const event = require(`./${file}`);
-    if (event.name && typeof event.execute === "function") {
-        client.on(event.name, (...args) => event.execute(...args, client));
-        console.log(`✔ Event chargé : ${file}`);
+// --- CHARGEMENT DES MODULES (bienvenue.js, modération.js, etc.) ---
+// Chaque module doit exporter une fonction (client) => {...}
+const modules = ["bienvenue.js", "modération.js"];
+modules.forEach(file => {
+    try {
+        require(`./${file}`)(client);
+        console.log(`✔ Module chargé : ${file}`);
+    } catch (error) {
+        console.error(`❌ Erreur en chargeant ${file} :`, error);
     }
-}
+});
 
 // --- STATUS DU BOT ---
 client.once('ready', () => {
     console.log(`Bot connecté en tant que ${client.user.tag}`);
+
     setInterval(() => {
         const guild = client.guilds.cache.first();
         if (!guild) return;
@@ -47,5 +48,3 @@ app.listen(3000, () => console.log("Ping server ready"));
 
 // --- LOGIN DU BOT ---
 client.login(process.env.TOKEN);
-
-module.exports = client;
