@@ -1,41 +1,50 @@
-import { Client, GatewayIntentBits, ActivityType } from "discord.js";
-import express from "express";
+const fs = require("fs");
+const { Client, GatewayIntentBits, Partials, Collection, ActivityType } = require("discord.js");
+require("dotenv").config();
 
-// --- Serveur express pour Render ---
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages
+    ],
+    partials: [Partials.Channel]
+});
+
+// Charger les events (dont bienvenue.js)
+client.events = new Collection();
+const eventsFolder = __dirname;
+const eventFiles = fs.readdirSync(eventsFolder).filter(file => file.endsWith(".js") && file !== "index.js");
+
+for (const file of eventFiles) {
+    const event = require(`./${file}`);
+    if (event.name) {
+        client.on(event.name, (...args) => event.execute(...args));
+        console.log(`✔ Event chargé : ${file}`);
+    }
+}
+
+// Ready (statut permanent)
+client.on("ready", () => {
+    console.log(`🔥 Connecté en tant que ${client.user.tag}`);
+
+    // Statut streaming + compteur membres dynamique
+    setInterval(() => {
+        const guild = client.guilds.cache.first();
+        const memberCount = guild ? guild.memberCount : "N/A";
+
+        client.user.setActivity(`🎮 Nexa Esport • ${memberCount} membres`, {
+            type: ActivityType.Streaming,
+            url: "https://twitch.tv/discord"
+        });
+    }, 15000); // toutes les 15 secondes
+});
+
+// Ping server pour UptimeRobot
+const express = require("express");
 const app = express();
 app.get("/", (req, res) => res.send("Bot en ligne"));
 app.listen(3000, () => console.log("Ping server ready"));
 
-// --- Bot Discord ---
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds, // obligatoire pour lire les infos du serveur
-    GatewayIntentBits.GuildMembers // obligatoire pour compter les membres
-  ]
-});
-
-// Quand le bot est connecté
-client.on("clientReady", async () => {
-  console.log(`🔥 Connecté en tant que ${client.user.tag}`);
-
-  // On récupère le serveur dans lequel est le bot
-  const guildId = "1443299228020506779";  // <-- Mets l'ID de TON serveur
-
-  const guild = await client.guilds.fetch(guildId);
-  await guild.members.fetch(); // charge les membres
-
-  // Compte les membres
-  const memberCount = guild.memberCount;
-
-  console.log(`👥 Membres sur le serveur : ${memberCount}`);
-
-  // Statut streaming avec le nombre de membres
-  client.user.setActivity({
-    name: `👥 ${memberCount} membres`,
-    type: ActivityType.Streaming,
-    url: "https://twitch.tv/nexacorp" // obligatoire pour le mode streaming
-  });
-});
-
-// Connexion Discord sécurisée via Render
+// Connexion au bot
 client.login(process.env.TOKEN);
