@@ -1,50 +1,83 @@
-// Modules
-const fs = require("fs");
-const express = require("express");
-const { Client, GatewayIntentBits, Partials, Collection, ActivityType } = require("discord.js");
-require("dotenv").config();
+// index.js
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.js');
+const CONFIG = require('./config.json'); // fournis plus bas (IDs, image, thresholds)
 
-// --- CLIENT DISCORD ---
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ],
-    partials: [Partials.Channel, Partials.Message, Partials.User, Partials.GuildMember]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions
+  ],
+  partials: [Partials.Channel, Partials.Message, Partials.GuildMember]
 });
 
-// --- COLLECTIONS POUR LES EVENTS ---
-client.events = new Collection();
+client.config = CONFIG;
+client.runtime = {}; // stockage runtime (strikes, maps, etc.)
 
-// --- CHARGEMENT DES MODULES (bienvenue.js, modération.js, etc.) ---
-// Chaque module doit exporter une fonction (client) => {...}
-const modules = ["bienvenue.js", "modération.js"];
-modules.forEach(file => {
-    try {
-        require(`./${file}`)(client);
-        console.log(`✔ Module chargé : ${file}`);
-    } catch (error) {
-        console.error(`❌ Erreur en chargeant ${file} :`, error);
-    }
+// Loader unique pour modules (welcome + moderation)
+const modules = ['welcome', 'moderation']; // on charge moderation.js et welcome.js (fichiers à la racine ou dossier moderation/)
+modules.forEach(name => {
+  const p1 = path.join(__dirname, `${name}.js`);
+  const p2 = path.join(__dirname, 'moderation', `${name}.js`);
+  let modPath = null;
+  if (fs.existsSync(p1)) modPath = p1;
+  else if (fs.existsSync(p2)) modPath = p2;
+  if (!modPath) {
+    console.warn(`Module ${name} introuvable (checked ${p1} and ${p2}).`);
+    return;
+  }
+  try {
+    const mod = require(modPath);
+    if (mod && typeof mod.init === 'function') mod.init(client);
+    else console.warn(`Module ${name} chargé mais n'exporte pas init(client).`);
+    console.log(`Module chargé: ${name} (${modPath})`);
+  } catch (e) {
+    console.error(`Erreur chargement module ${name}:`, e);
+  }
 });
 
-// --- STATUS DU BOT ---
+// Statut rotatif : 30s Surveille X membres / 30s NexaWin streaming
+const TWITCH_URL = 'https://www.twitch.tv/nexacorp';
+const ROTATE_INTERVAL_MS = 30000;
 client.once('ready', () => {
-    console.log(`Bot connecté en tant que ${client.user.tag}`);
-
-    setInterval(() => {
-        const guild = client.guilds.cache.first();
-        if (!guild) return;
-        client.user.setActivity(`📺 Je stream | Surveille ${guild.memberCount} membres | Nexa Win`, { type: ActivityType.Watching });
-    }, 30000);
+  console.log(`✅ Connecté en tant que ${client.user.tag}`);
+  // initial status
+  let idx = 0;
+  setInterval(async () => {
+    try {
+      const guild = client.guilds.cache.first();
+      const members = guild ? guild.memberCount : '?';
+      const statuses = [
+        `Surveille ${members} membres`,
+        `NexaWin • regarde ${client.user.username}`,
+      ];
+      const s = statuses[idx % statuses.length];
+      await client.user.setActivity(s, { type: ActivityType.Streaming, url: TWITCH_URL }).catch(()=>{});
+      idx++;
+    } catch (err) {
+      console.error('Erreur rotation status:', err);
+    }
+  }, ROTATE_INTERVAL_MS);
 });
 
-// --- PING UPTIMEROBOT ---
+// Ping server pour UptimeRobot
+const express = require('express');
 const app = express();
-app.get("/", (req, res) => res.send("Bot en ligne"));
-app.listen(3000, () => console.log("Ping server ready"));
+app.get('/', (req, res) => res.send('Bot Nexa en ligne'));
+app.listen(process.env.PORT || 3000, () => console.log('Ping server ready'));
 
-// --- LOGIN DU BOT ---
-client.login(process.env.TOKEN);
+// Vérification token
+if (!process.env.TOKEN) {
+  console.error('ERREUR: TOKEN manquant dans .env ou variables Render.');
+  process.exit(1);
+}
+
+client.login(process.env.TOKEN).catch(err => {
+  console.error('Erreur login:', err);
+  process.exit(1);
+});
