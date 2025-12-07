@@ -24,21 +24,17 @@ for (const file of eventFiles) {
     }
 }
 
-// Ready (statut permanent)
-client.on("ready", () => {
-    console.log(`🔥 Connecté en tant que ${client.user.tag}`);
-
-    // Statut streaming + compteur membres dynamique
-    setInterval(() => {
+// --- STATUS DU BOT ---
+client.on('ready', () => {
+    console.log(`Modération active, connecté en tant que ${client.user.tag}`);
+    setInterval(async () => {
         const guild = client.guilds.cache.first();
-        const memberCount = guild ? guild.memberCount : "N/A";
-
-        client.user.setActivity(`🎮 Nexa Esport • ${memberCount} membres`, {
-            type: ActivityType.Streaming,
-            url: "https://twitch.tv/discord"
-        });
-    }, 15000); // toutes les 15 secondes
+        if (!guild) return;
+        await client.user.setActivity(`📺 Je stream | Surveille ${guild.memberCount} membres | Nexa Win`, { type: 3 });
+    }, 30000);
 });
+
+module.exports = client;
 
 // Ping server pour UptimeRobot
 const express = require("express");
