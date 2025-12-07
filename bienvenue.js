@@ -1,5 +1,5 @@
+const client = require('./index.js');
 const { EmbedBuilder } = require('discord.js');
-const client = require('./index.js'); // Ton index.js qui instancie le client
 
 const WELCOME_CHANNEL = '1443299713012207748';
 const WELCOME_ROLE = '1443299666765807647';
@@ -9,11 +9,9 @@ client.on('guildMemberAdd', async member => {
     const channel = await member.guild.channels.fetch(WELCOME_CHANNEL);
     if (!channel) return;
 
-    // Ajout du rôle
     const role = member.guild.roles.cache.get(WELCOME_ROLE);
     if (role) await member.roles.add(role);
 
-    // Embed de bienvenue
     const embed = new EmbedBuilder()
         .setColor('#8e44ad')
         .setTitle(`Bienvenue ${member.user.username} !`)
@@ -25,5 +23,5 @@ client.on('guildMemberAdd', async member => {
         .setThumbnail(WELCOME_IMAGE)
         .setFooter({ text: 'Passez une excellente journée sur le serveur !' });
 
-    channel.send({embeds: [embed] });
+    channel.send({ content: '@everyone', embeds: [embed] });
 });
