@@ -1,26 +1,29 @@
 const { EmbedBuilder } = require('discord.js');
+const client = require('./index.js'); // Ton index.js qui instancie le client
 
-module.exports = {
-    name: "guildMemberAdd",
-    async execute(member) {
+const WELCOME_CHANNEL = '1443299713012207748';
+const WELCOME_ROLE = '1443299666765807647';
+const WELCOME_IMAGE = 'https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png';
 
-        const channelId = "1443299713012207748"; // <-- Donne-le-moi
-        const channel = member.guild.channels.cache.get(channelId);
-        if (!channel) return;
+client.on('guildMemberAdd', async member => {
+    const channel = await member.guild.channels.fetch(WELCOME_CHANNEL);
+    if (!channel) return;
 
-        const embed = new EmbedBuilder()
-        .setColor('#2b2d31')
-        .setTitle(`👋 Bienvenue ${member.user.username} !`)
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setImage("https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png")
-        .setDescription(
-            `> Nous te souhaitons la bienvenue sur **${member.guild.name}** ! 🎉\n\n`
-            + `> Tu es maintenant le **${member.guild.memberCount}ᵉ membre** du serveur.\n`
-            + `> Prends connaissance du règlement et passe un bon moment parmi nous !`
+    // Ajout du rôle
+    const role = member.guild.roles.cache.get(WELCOME_ROLE);
+    if (role) await member.roles.add(role);
+
+    // Embed de bienvenue
+    const embed = new EmbedBuilder()
+        .setColor('#8e44ad')
+        .setTitle(`Bienvenue ${member.user.username} !`)
+        .setDescription(`Salut ${member}, bienvenue sur le serveur **Nexa Esport** !\nNous sommes maintenant **${member.guild.memberCount} membres**.`)
+        .addFields(
+            { name: 'Rejoins-nous ici', value: '<#1443299714744451233>' },
+            { name: 'Créer un ticket', value: '<#1443299733392199871>' }
         )
-        .setFooter({ text: 'Système Automatique — Nemesis Security' })
-        .setTimestamp();
+        .setThumbnail(WELCOME_IMAGE)
+        .setFooter({ text: 'Passez une excellente journée sur le serveur !' });
 
-        channel.send({ embeds: [embed] });
-    }
-};
+    channel.send({embeds: [embed] });
+});
