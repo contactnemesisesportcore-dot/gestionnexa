@@ -1,42 +1,26 @@
-const { Events } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
-    name: Events.GuildMemberAdd,
+    name: "guildMemberAdd",
     async execute(member) {
-        
-        // ID du salon de bienvenue
-        const channelId = "1443299713012207748";
 
-        // ID du rôle à ajouter
-        const roleId = "1443299666765807647";
-
-        // Ajout du rôle automatiquement
-        try {
-            await member.roles.add(roleId);
-        } catch (err) {
-            console.error("Erreur en ajoutant le rôle :", err);
-        }
-
-        // Récupérer le nombre total de membres
-        const memberCount = member.guild.memberCount;
-
-        // Channel de bienvenue
+        const channelId = "1443299713012207748"; // <-- Donne-le-moi
         const channel = member.guild.channels.cache.get(channelId);
-        if (!channel) return console.error("Salon de bienvenue introuvable.");
+        if (!channel) return;
 
-        // Message de bienvenue
-        const msg = 
-`Bienvenue __${member}__
-${member} sur le serveur **Nexa Esport** ! Grâce à toi, nous sommes **${memberCount}** membres sur le serveur.
+        const embed = new EmbedBuilder()
+        .setColor('#2b2d31')
+        .setTitle(`👋 Bienvenue ${member.user.username} !`)
+        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+        .setImage("https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png")
+        .setDescription(
+            `> Nous te souhaitons la bienvenue sur **${member.guild.name}** ! 🎉\n\n`
+            + `> Tu es maintenant le **${member.guild.memberCount}ᵉ membre** du serveur.\n`
+            + `> Prends connaissance du règlement et passe un bon moment parmi nous !`
+        )
+        .setFooter({ text: 'Système Automatique — Nemesis Security' })
+        .setTimestamp();
 
-Vous pouvez prendre connaissance du règlement :
-https://discord.com/channels/1443299228020506779/1443299714744451233
-
-Et si tu souhaites nous rejoindre ou autre, crée un ticket :
-https://discord.com/channels/1443299228020506779/1443299733392199871
-
-Passe une excellente journée sur le serveur !`;
-
-        channel.send(msg);
+        channel.send({ embeds: [embed] });
     }
 };
