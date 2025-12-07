@@ -24,7 +24,7 @@ module.exports = (client) => {
                 .setThumbnail(WELCOME_IMAGE)
                 .setFooter({ text: 'Passez une excellente journée sur le serveur !' });
 
-            await channel.send({ content: '@everyone', embeds: [embed] });
+            await channel.send({embeds: [embed] });
         } catch (error) {
             console.error(`Erreur bienvenue.js : ${error}`);
         }
