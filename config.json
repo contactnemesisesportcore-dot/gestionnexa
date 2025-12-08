@@ -1,15 +1,22 @@
 {
   "guildId": "1443299228020506779",
-  "welcomeChannel": "1443299713012207748",
-  "welcomeRole": "1443299666765807647",
-
-  "logs": {
-    "spam": "1447333693797568512",
-    "raid": "1447333693797568512",
-    "bot": "1447333693797568512",
-    "blacklist": "1447333693797568512"
+  "thresholds": {
+    "spam": { "count": 5, "intervalMs": 5000, "timeoutMs": 600000 },
+    "raid": { "count": 10, "intervalMs": 10000 },
+    "createAbuse": { "count": 10, "intervalMs": 3600000 }
   },
-
-  "image": "https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png",
+  "logChannels": {
+    "general": "1447333693797568512"
+  },
+  "staffRoleUnion": [
+    "1443299585920598089","1443299591855276062","1443299593675735121"
+  ],
+  "welcome": {
+    "channelId": "1443299713012207748",
+    "roleToAdd": "1443299666765807647",
+    "mentionOwnerId": "1398784567946645545",
+    "image": "https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png"
+  },
+  "allowedBotIds": [],
   "twitch": "https://www.twitch.tv/nexacorp"
 }
