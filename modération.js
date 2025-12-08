@@ -1,5 +1,5 @@
 // moderation.js
-// Module unique de modération — init(client)
+// Module de modération unique — init(client)
 // Anti-spam, anti-raid, anti-bot join, anti-link, anti-token,
 // anti-create-abuse (channels/roles), protection serveur, blacklist persistante,
 // logs en français. Spam alerts -> salon 1443327024323100813
@@ -12,7 +12,6 @@ const CONFIG_PATH = path.join(process.cwd(), 'config.json');
 const cfg = fs.existsSync(CONFIG_PATH) ? require(CONFIG_PATH) : {};
 const BLACKLIST_PATH = path.join(process.cwd(), 'blacklists.json');
 
-// ---- blacklist helpers
 function loadBlacklist() {
   try {
     if (!fs.existsSync(BLACKLIST_PATH)) {
@@ -29,11 +28,9 @@ function saveBlacklist(obj) {
   try { fs.writeFileSync(BLACKLIST_PATH, JSON.stringify(obj, null, 2)); } catch(e){ console.error('Erreur save blacklist', e); }
 }
 
-// ---- log channels
-const SPAM_LOG_CHANNEL = '1443327024323100813'; // salon SPAM fourni par toi
+const SPAM_LOG_CHANNEL = '1443327024323100813';
 const GENERAL_LOG_CHANNEL = (cfg.logChannels && (cfg.logChannels.general || cfg.logChannels.spam)) || SPAM_LOG_CHANNEL;
 
-// ---- send log helper
 async function sendLog(client, channelId, title, fields = [], color = 0x8A2BE2) {
   try {
     if (!channelId) return;
@@ -47,19 +44,21 @@ async function sendLog(client, channelId, title, fields = [], color = 0x8A2BE2) 
   }
 }
 
-// ---- runtime maps
-const spamMap = new Map();    // guildId -> Map(userId -> [timestamps])
-const joinMap = new Map();    // guildId -> [timestamps]
-const createMap = new Map();  // guildId -> Map(userId -> [timestamps])
+// runtime
+const spamMap = new Map();   // guildId -> Map(userId -> [timestamps])
+const joinMap = new Map();
+const createMap = new Map();
 const serverSnapshot = new Map();
 
 module.exports = {
   init(client) {
+    // thresholds from config or defaults
     const thresholds = (cfg.thresholds) || {
       spam: { count: 5, intervalMs: 5000, timeoutMs: 10 * 60 * 1000 },
       raid: { count: 10, intervalMs: 10000 },
       createAbuse: { count: 10, intervalMs: 60 * 60 * 1000 }
     };
+
     const staffRoles = (cfg.staffRoleUnion || []).map(String);
 
     const isStaff = (member) => {
@@ -69,13 +68,34 @@ module.exports = {
       } catch { return false; }
     };
 
-    // expose logging util
-    client.modlog = async (title, fields = [], color = 0x8A2BE2) => sendLog(client, GENERAL_LOG_CHANNEL, title, fields, color);
+    // utility to check bot perms in a channel/guild
+    function botHasModerationPerms(channel) {
+      try {
+        const botMember = channel.guild.members.me;
+        if (!botMember) return false;
+        // needs ManageMessages and ModerateMembers (timeout) to perform actions
+        const perms = channel.permissionsFor(botMember);
+        if (!perms) return false;
+        return perms.has('ManageMessages') && perms.has('ModerateMembers') && perms.has('SendMessages');
+      } catch {
+        return false;
+      }
+    }
+
+    client.modlog = async (title, fields = [], color = 0x8A2BE2) => {
+      await sendLog(client, GENERAL_LOG_CHANNEL, title, fields, color).catch(()=>{});
+    };
 
     // ---------- ANTI-SPAM ----------
     client.on('messageCreate', async (message) => {
       try {
         if (!message.guild || message.author.bot) return;
+
+        // ensure member object
+        if (!message.member) {
+          try { await message.guild.members.fetch(message.author.id).catch(()=>{}); } catch(e){}
+        }
+
         if (message.member && isStaff(message.member)) return;
 
         const gid = message.guild.id;
@@ -90,7 +110,7 @@ module.exports = {
         spamMap.set(gid, guildMap);
 
         if (window.length >= thresholds.spam.count) {
-          // delete recent messages from this user in the channel (best-effort)
+          // delete recent messages by this user in the channel (best-effort)
           try {
             const fetched = await message.channel.messages.fetch({ limit: 50 }).catch(()=>null);
             if (fetched) {
@@ -101,22 +121,22 @@ module.exports = {
             } else {
               try { await message.delete().catch(()=>{}); } catch(e){}
             }
-          } catch (e) { /* ignore */ }
+          } catch(e){}
 
-          // log to spam channel
-          await sendLog(client, SPAM_LOG_CHANNEL, '🔇 Anti-spam : messages supprimés', [
+          // log
+          await sendLog(client, SPAM_LOG_CHANNEL, '🔇 Anti-spam : suppression détectée', [
             { name: 'Auteur', value: `${message.author.tag} (${uid})` },
             { name: 'Salon', value: `${message.channel.name} (${message.channel.id})` },
             { name: 'Détail', value: `${window.length} messages en ${thresholds.spam.intervalMs/1000}s` }
           ], 0xFF8A00);
 
-          // channel warning (transient)
+          // transient message to warn (auto-delete)
           try {
-            const warnMsg = await message.channel.send({ content: `⚠️ ${message.author}, attention au spam — vos messages récents ont été supprimés.` }).catch(()=>null);
-            if (warnMsg) setTimeout(()=>warnMsg.delete().catch(()=>{}), 10000);
+            const warn = await message.channel.send({ content: `⚠️ ${message.author}, attention au spam — vos messages récents ont été supprimés.` }).catch(()=>null);
+            if (warn) setTimeout(()=>warn.delete().catch(()=>{}), 10000);
           } catch(e){}
 
-          // strikes progression
+          // strikes
           const key = `spam:${gid}:${uid}`;
           const data = client.runtime[key] || { strikes: 0, last: 0 };
           if (Date.now() - data.last < (thresholds.spam.intervalMs * 6)) data.strikes++;
@@ -125,10 +145,15 @@ module.exports = {
           client.runtime[key] = data;
 
           // if repeated -> timeout
-          if (data.strikes >= 2) {
-            if (message.member && message.member.moderatable) {
-              const timeoutMs = thresholds.spam.timeoutMs;
-              if (process.env.AUTO_ENFORCE === 'true') {
+          if (data.strikes >= 2 && message.member && message.member.moderatable) {
+            const timeoutMs = thresholds.spam.timeoutMs;
+            if (process.env.AUTO_ENFORCE === 'true') {
+              // check bot perms before attempting timeout
+              if (!botHasModerationPerms(message.channel)) {
+                await sendLog(client, SPAM_LOG_CHANNEL, '⚠️ Anti-spam : permissions insuffisantes pour timeout', [
+                  { name: 'Info', value: `Le bot n'a pas ManageMessages/ModerateMembers dans ${message.channel.id}` }
+                ], 0xFF0000);
+              } else {
                 try {
                   await message.member.timeout(timeoutMs, 'Spam répété (automatique)').catch(()=>{});
                   await sendLog(client, SPAM_LOG_CHANNEL, '🔒 Anti-spam : timeout appliqué', [
@@ -136,19 +161,20 @@ module.exports = {
                     { name: 'Durée', value: `${timeoutMs/60000} minutes` }
                   ], 0xFF0000);
                 } catch (e) {
-                  console.warn('Impossible timeout:', e);
+                  console.warn('Erreur timeout auto:', e);
+                  await sendLog(client, SPAM_LOG_CHANNEL, '⚠️ Anti-spam : échec timeout', [{ name: 'Erreur', value: String(e) }], 0xFF0000);
                 }
-              } else {
-                await sendLog(client, SPAM_LOG_CHANNEL, 'ℹ️ Anti-spam : sanction recommandée', [
-                  { name: 'Auteur', value: `${message.author.tag} (${uid})` },
-                  { name: 'Proposition', value: `Timeout ${thresholds.spam.timeoutMs/60000} minutes (AUTO_ENFORCE=false)` }
-                ], 0xFFAA00);
               }
+            } else {
+              await sendLog(client, SPAM_LOG_CHANNEL, 'ℹ️ Anti-spam : sanction recommandée', [
+                { name: 'Auteur', value: `${message.author.tag} (${uid})` },
+                { name: 'Proposition', value: `Timeout ${thresholds.spam.timeoutMs/60000} minutes (AUTO_ENFORCE=false)` }
+              ], 0xFFAA00);
             }
           }
         }
       } catch (err) {
-        console.error('anti-spam error:', err);
+        console.error('anti-spam error', err);
       }
     });
 
@@ -160,21 +186,23 @@ module.exports = {
     client.on('messageCreate', async (message) => {
       try {
         if (!message.guild || message.author.bot) return;
+        if (!message.member) {
+          try { await message.guild.members.fetch(message.author.id).catch(()=>{}); } catch(e){}
+        }
         if (message.member && isStaff(message.member)) return;
+
         const content = message.content || '';
 
-        // token
         if (tokenPattern.test(content)) {
           await message.delete().catch(()=>{});
           await sendLog(client, SPAM_LOG_CHANNEL, '🔐 Anti-token détecté', [
             { name: 'Auteur', value: `${message.author.tag} (${message.author.id})` },
             { name: 'Salon', value: `${message.channel.name} (${message.channel.id})` }
           ], 0xFF0000);
-          try { await message.author.send("⚠️ Ton message contenait une chaîne sensible (token) et a été supprimé pour ta sécurité.").catch(()=>{}); } catch(e){}
+          try { await message.author.send("Ton message contenait une chaîne sensible (token) et a été supprimé.").catch(()=>{}); } catch(e){}
           return;
         }
 
-        // link (autorise invites Discord, bloque le reste)
         if (urlRegex.test(content)) {
           const isInvite = /discord(?:app)?\.com\/invite|discord\.gg\//i.test(content);
           if (!isInvite) {
@@ -187,7 +215,6 @@ module.exports = {
           }
         }
 
-        // nsfw keywords
         const lc = content.toLowerCase();
         if (nsfwWords.some(w => lc.includes(w))) {
           if (!message.channel.nsfw) {
@@ -199,8 +226,9 @@ module.exports = {
             return;
           }
         }
+
       } catch (err) {
-        console.error('anti-link/token/nsfw error:', err);
+        console.error('anti-link/token/nsfw error', err);
       }
     });
 
@@ -238,7 +266,6 @@ module.exports = {
             { name: 'Joins', value: `${window.length} en ${interval/1000}s` }
           ], 0xFF0000);
 
-          // Lockdown (best-effort)
           for (const ch of member.guild.channels.cache.values()) {
             try {
               if (ch.type === ChannelType.GuildText || ch.type === ChannelType.GuildForum) {
@@ -256,7 +283,7 @@ module.exports = {
       } catch (err) { console.error('anti-raid error', err); }
     });
 
-    // ---------- ANTI-CREATE ABUSE (channels / roles) ----------
+    // ---------- ANTI-CREATE ABUSE ----------
     client.on('channelCreate', async (channel) => {
       try {
         if (!channel.guild) return;
@@ -323,11 +350,9 @@ module.exports = {
       } catch (err) { console.error('anti-create role error', err); }
     });
 
-    // ---------- PROTECT SERVER (guildUpdate) ----------
+    // ---------- PROTECT SERVER ----------
     client.once('ready', () => {
-      client.guilds.cache.forEach(g => {
-        serverSnapshot.set(g.id, { name: g.name, icon: g.icon, ownerId: g.ownerId });
-      });
+      client.guilds.cache.forEach(g => serverSnapshot.set(g.id, { name: g.name, icon: g.icon, ownerId: g.ownerId }));
     });
 
     client.on('guildUpdate', async (oldGuild, newGuild) => {
