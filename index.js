@@ -68,7 +68,7 @@ client.once('ready', async () => {
 
       const statuses = [
         `Surveille ${members} membres`,
-        `NexaWin • Live`
+        `NexaWin`
       ];
 
       const statusText = statuses[idx % statuses.length];
