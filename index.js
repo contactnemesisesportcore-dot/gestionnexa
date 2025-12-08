@@ -18,13 +18,10 @@ const client = new Client({
 
 // Données globales
 client.config = CONFIG;
-client.runtime = {}; // ex: anti-spam plus tard
+client.runtime = {}; 
 
 // ===== CHARGEMENT DES MODULES =====
-const modules = [
-  'bienvenue',
-  'modération'
-];
+const modules = ['bienvenue', 'modération'];
 
 modules.forEach(modName => {
   const file = path.join(__dirname, `${modName}.js`);
@@ -50,40 +47,45 @@ modules.forEach(modName => {
   }
 });
 
-// ===== ACTIVITÉ / STATUS =====
+// ====== CONFIG DU STATUT ======
 const TWITCH_URL = "https://www.twitch.tv/nexacorp";
 const ROTATE_INTERVAL_MS = 30000;
+let i = 0;
 
-client.once('ready', () => {
-  console.log(`\n🎉 Connecté en tant que ${client.user.tag}\n`);
-
-  let i = 0;
+// ====== READY EVENT ======
+client.once("ready", () => {
+  console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
   setInterval(() => {
-    const guild = client.guilds.cache.first();
-    const members = guild ? guild.memberCount : "0";
+    try {
+      const guild = client.guilds.cache.first();
+      const members = guild ? guild.memberCount : "0";
 
-    const statuses = [
-      `surveille ${members} membres`,
-      `NexaWin — système actif`
-    ];
+      const statuses = [
+        `surveille ${members} membres`,
+        `NexaWin — système actif`
+      ];
 
-    client.user.setActivity(statuses[i % statuses.length], {
-      type: ActivityType.Streaming,
-      url: TWITCH_URL
-    }).catch(() => {});
+      client.user.setActivity(statuses[i % statuses.length], {
+        type: ActivityType.Streaming,
+        url: TWITCH_URL
+      });
 
-    i++;
+      i++;
+
+    } catch (err) {
+      console.error("Erreur setActivity :", err);
+    }
   }, ROTATE_INTERVAL_MS);
 });
 
-// ======== SERVEUR POUR RENDER ========
+// ===== SERVEUR POUR RENDER =====
 const express = require("express");
 const app = express();
 app.get("/", (_, res) => res.send("Bot en ligne"));
 app.listen(process.env.PORT || 3000);
 
-// ======== CONNEXION ========
+// ===== CONNEXION =====
 if (!process.env.TOKEN) {
   console.error("❌ Le TOKEN est manquant dans .env");
   process.exit(1);
