@@ -1,58 +1,140 @@
-// modération.js
 module.exports.init = (client) => {
 
-  client.on("messageCreate", async (msg) => {
-    if (msg.author.bot) return;
+  // =========================
+  // ANTI-SPAM
+  // =========================
 
-    const prefix = client.config.prefix;
-    if (!msg.content.startsWith(prefix)) return;
+  const spamMap = new Map();
 
-    const args = msg.content.slice(prefix.length).trim().split(/\s+/);
-    const cmd = args.shift().toLowerCase();
+  client.on("messageCreate", async msg => {
+    if (!msg.guild || msg.author.bot) return;
 
-    // =============================
-    //        CLEAR
-    // =============================
-    if (cmd === "clear") {
-      if (!msg.member.permissions.has("ManageMessages"))
-        return msg.reply("❌ Tu n'as pas la permission.");
+    const userId = msg.author.id;
+    const now = Date.now();
 
-      const amount = parseInt(args[0]);
-      if (!amount || amount < 1 || amount > 100)
-        return msg.reply("❌ Nombre entre 1 et 100.");
-
-      await msg.channel.bulkDelete(amount, true);
-      msg.channel.send(`🧹 ${amount} messages supprimés !`).then(m => setTimeout(() => m.delete(), 3000));
+    if (!spamMap.has(userId)) {
+      spamMap.set(userId, []);
     }
 
-    // =============================
-    //        KICK
-    // =============================
-    if (cmd === "kick") {
-      if (!msg.member.permissions.has("KickMembers"))
-        return msg.reply("❌ Tu n'as pas la permission.");
+    const timestamps = spamMap.get(userId);
+    timestamps.push(now);
 
-      const user = msg.mentions.members.first();
-      if (!user) return msg.reply("❌ Mentionne un membre.");
+    // garder seulement les 10s dernières
+    const last = timestamps.filter(t => now - t < 10000);
+    spamMap.set(userId, last);
 
-      await user.kick();
-      msg.reply(`🦵 ${user.user.tag} a été expulsé.`);
+    // détecte spam
+    if (last.length >= client.config.spamCount) {
+
+      // Supprime message
+      msg.delete().catch(() => {});
+
+      // Avertissement
+      msg.channel.send(`${msg.author}, ⚠ merci d'éviter le spam.`)
+        .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
+
+      // Logs
+      const logs = client.channels.cache.get(client.config.logSpam);
+      if (logs) logs.send(
+        `🟧 **SPAM détecté**\n` +
+        `👤 Utilisateur : ${msg.author} (${msg.author.id})\n` +
+        `📌 Salon : ${msg.channel}`
+      );
+
+      // Timeout
+      msg.member.timeout(client.config.timeoutMinutes * 60 * 1000, "Spam automatique")
+        .catch(() => {});
+
+      // reset
+      spamMap.set(userId, []);
     }
-
-    // =============================
-    //        BAN
-    // =============================
-    if (cmd === "ban") {
-      if (!msg.member.permissions.has("BanMembers"))
-        return msg.reply("❌ Tu n'as pas la permission.");
-
-      const user = msg.mentions.members.first();
-      if (!user) return msg.reply("❌ Mentionne un membre.");
-
-      await user.ban();
-      msg.reply(`🔨 ${user.user.tag} a été banni.`);
-    }
-
   });
 
+  // =========================
+  // ANTI-RAID (10 joins / 10 sec)
+  // =========================
+  const joinTimes = [];
+
+  client.on("guildMemberAdd", member => {
+    const now = Date.now();
+    joinTimes.push(now);
+
+    const recent = joinTimes.filter(t => now - t < client.config.raidSeconds * 1000);
+    joinTimes.length = 0;
+    joinTimes.push(...recent);
+
+    if (recent.length >= client.config.raidThreshold) {
+      const logs = client.channels.cache.get(client.config.logRaid);
+
+      if (logs) logs.send(
+        `🚨 **ANTI-RAID ACTIVÉ**\n` +
+        `📌 ${recent.length} comptes ont rejoint en ${client.config.raidSeconds}s`
+      );
+    }
+  });
+
+  // =========================
+  // ANTI-BOT
+  // =========================
+  client.on("guildMemberAdd", member => {
+    if (member.user.bot) {
+      const logs = client.channels.cache.get(client.config.logBot);
+      if (logs) logs.send(
+        `🤖 **Bot détecté :** ${member.user.tag} (${member.id})`
+      );
+    }
+  });
+
+  // =========================
+  // BLACKLIST création salons / rôles
+  // =========================
+  const trackCreate = {
+    channels: [],
+    roles: []
+  };
+
+  const pushLimit = (array, userId) => {
+    array.push({ userId, time: Date.now() });
+    return array.filter(d => Date.now() - d.time < 3600000); // 1h
+  };
+
+  // Salon créé
+  client.on("channelCreate", ch => {
+    ch.guild.fetchAuditLogs({ type: 10, limit: 1 }).then(logs => {
+      const entry = logs.entries.first();
+      if (!entry) return;
+
+      const userId = entry.executor.id;
+      trackCreate.channels = pushLimit(trackCreate.channels, userId);
+
+      if (trackCreate.channels.filter(c => c.userId === userId).length >= 10) {
+        const logsChan = client.channels.cache.get(client.config.logBlacklist);
+        if (logsChan) logsChan.send(
+          `⛔ **BLACKLIST — création massive de salons**\n` +
+          `👤 ${entry.executor} (${userId})`
+        );
+        ch.guild.members.ban(userId, { reason: "Création massive de salons" }).catch(() => {});
+      }
+    });
+  });
+
+  // Rôle créé
+  client.on("roleCreate", role => {
+    role.guild.fetchAuditLogs({ type: 30, limit: 1 }).then(logs => {
+      const entry = logs.entries.first();
+      if (!entry) return;
+
+      const userId = entry.executor.id;
+      trackCreate.roles = pushLimit(trackCreate.roles, userId);
+
+      if (trackCreate.roles.filter(c => c.userId === userId).length >= 10) {
+        const logsChan = client.channels.cache.get(client.config.logBlacklist);
+        if (logsChan) logsChan.send(
+          `⛔ **BLACKLIST — création massive de rôles**\n` +
+          `👤 ${entry.executor} (${userId})`
+        );
+        role.guild.members.ban(userId, { reason: "Création massive de rôles" }).catch(() => {});
+      }
+    });
+  });
 };
