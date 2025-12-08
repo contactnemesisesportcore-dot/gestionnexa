@@ -3,10 +3,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.js');
-const CONFIG = require('./config.json'); // IDs / salons / logs / image
-
-// →→→ AJOUT IMPORTANT : ID de TON SERVEUR (pour éviter le bug "2 membres")
-const GUILD_ID = CONFIG.guildId; // Mets ton ID dans config.json
+const CONFIG = require('./config.json');
 
 const client = new Client({
   intents: [
@@ -20,88 +17,93 @@ const client = new Client({
 });
 
 client.config = CONFIG;
-client.runtime = {};
+client.runtime = {}; // Pour les maps runtime (spam, strikes etc.)
 
-// -------------------------
-// 🧩 CHARGEMENT MODULES
-// -------------------------
-const modules = ['welcome', 'moderation'];
+// =====================================================
+// =========== CHARGEMENT DES MODULES CUSTOM ===========
+// =====================================================
+
+// Liste des modules à charger
+const modules = [
+  'bienvenue',       // fichier bienvenue.js
+  'modération'       // fichier modération.js (accent inclus)
+];
+
+// Chargement sécurisé des modules
 modules.forEach(name => {
-  const p1 = path.join(__dirname, `${name}.js`);
-  const p2 = path.join(__dirname, 'moderation', `${name}.js`);
-  let modPath = null;
-
-  if (fs.existsSync(p1)) modPath = p1;
-  else if (fs.existsSync(p2)) modPath = p2;
-
-  if (!modPath) {
-    console.warn(`Module ${name} introuvable.`);
+  const filePath = path.join(__dirname, `${name}.js`); // ex: ./modération.js
+  if (!fs.existsSync(filePath)) {
+    console.warn(`⚠️ Module introuvable : ${filePath}`);
     return;
   }
 
   try {
-    const mod = require(modPath);
-    if (mod && typeof mod.init === 'function') mod.init(client);
-    console.log(`Module chargé: ${name}`);
+    const mod = require(filePath);
+    if (mod && typeof mod.init === 'function') {
+      mod.init(client);
+      console.log(`✅ Module chargé : ${name}`);
+    } else {
+      console.warn(`⚠️ Module ${name} ne contient pas init(client)`);
+    }
   } catch (err) {
-    console.error(`Erreur chargement module ${name}:`, err);
+    console.error(`❌ Erreur chargement module ${name} :`, err);
   }
 });
 
-// -------------------------
-// 🎥 STATUT STREAMING FIXÉ
-// -------------------------
+// =====================================================
+// ================== ROTATION STATUS ===================
+// =====================================================
+
 const TWITCH_URL = 'https://www.twitch.tv/nexacorp';
 const ROTATE_INTERVAL_MS = 30000;
 
-client.once('ready', async () => {
-  console.log(`🔥 Connecté en tant que ${client.user.tag}`);
+client.once('ready', () => {
+  console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
   let idx = 0;
-
   setInterval(async () => {
     try {
-      // →→→ FIX : on prend toujours TON serveur, pas un serveur random
-      const guild = client.guilds.cache.get(GUILD_ID);
-
-      const members = guild ? guild.memberCount : "???";
+      const guild = client.guilds.cache.first();
+      const members = guild ? guild.memberCount : '?';
 
       const statuses = [
         `Surveille ${members} membres`,
         `NexaWin`
       ];
 
-      const statusText = statuses[idx % statuses.length];
+      const status = statuses[idx % statuses.length];
 
-      await client.user.setActivity(statusText, {
+      await client.user.setActivity(status, {
         type: ActivityType.Streaming,
         url: TWITCH_URL
-      });
+      }).catch(() => {});
 
       idx++;
     } catch (err) {
-      console.error("Erreur statut:", err);
+      console.error('Erreur rotation status:', err);
     }
   }, ROTATE_INTERVAL_MS);
 });
 
-// -------------------------
-// 🌐 Serveur ping UptimeRobot
-// -------------------------
+// =====================================================
+// ================ PING SERVEUR RENDER =================
+// =====================================================
+
 const express = require('express');
 const app = express();
 app.get('/', (req, res) => res.send('Bot Nexa en ligne'));
-app.listen(process.env.PORT || 3000, () => console.log('Ping server ready'));
+app.listen(process.env.PORT || 3000, () => console.log('Ping server prêt'));
 
-// -------------------------
-// 🔐 TOKEN
-// -------------------------
+// =====================================================
+// ===================== LOGIN BOT ======================
+// =====================================================
+
 if (!process.env.TOKEN) {
-  console.error("ERREUR: TOKEN manquant.");
+  console.error('❌ ERREUR: TOKEN manquant dans .env ou Render.');
   process.exit(1);
 }
 
 client.login(process.env.TOKEN).catch(err => {
-  console.error("Erreur login:", err);
+  console.error('Erreur login:', err);
   process.exit(1);
 });
