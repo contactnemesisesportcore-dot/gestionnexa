@@ -1,10 +1,14 @@
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
+// ===============================
+// index.js — Nexa Bot
+// ===============================
+require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
 const express = require("express");
-const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.js');
-const CONFIG = require('./config.json');
+const { Client, GatewayIntentBits, Partials, ActivityType } = require("discord.js");
+const CONFIG = require("./config.json");
 
+// ========== CLIENT ==========
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -17,34 +21,29 @@ const client = new Client({
 
 client.config = CONFIG;
 
-// =====================
-// CHARGEMENT MODULES
-// =====================
-const modules = ['bienvenue', 'modération'];
+// ========== CHARGEMENT MODULES ==========
+const modules = ["bienvenue", "modération"];
 
 modules.forEach(name => {
-  const file = path.join(__dirname, `${name}.js`);
+  const filepath = path.join(__dirname, `${name}.js`);
 
-  if (!fs.existsSync(file)) {
-    console.warn(`⚠ Module introuvable : ${name}.js`);
-    return;
+  if (!fs.existsSync(filepath)) {
+    return console.warn(`⚠ Module manquant : ${name}.js`);
   }
 
   try {
-    const mod = require(file);
+    const mod = require(filepath);
     if (typeof mod.init !== "function")
-      return console.warn(`⚠ ${name}.js doit contenir init(client)`);
+      return console.warn(`⚠ ${name}.js doit contenir : module.exports.init = (client) => {}`);
 
     mod.init(client);
     console.log(`✅ Module chargé : ${name}`);
   } catch (err) {
-    console.error(`❌ Erreur module ${name}:`, err);
+    console.error(`❌ Erreur dans ${name}.js :`, err);
   }
 });
 
-// =====================
-// STATUT STREAMING
-// =====================
+// ========== STATUT STREAMING ==========
 const ROTATE_INTERVAL = 30000;
 let rotateIndex = 0;
 
@@ -52,12 +51,12 @@ client.once("ready", () => {
   console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
   setInterval(() => {
-    const guild = client.guilds.cache.first();
+    const guild = client.guilds.cache.get(CONFIG.guildID);
     const members = guild?.memberCount ?? 0;
 
     const statuses = [
       `surveille ${members} membres`,
-      `NexaWin — système actif`
+      `NexaWin`
     ];
 
     client.user.setActivity(statuses[rotateIndex % statuses.length], {
@@ -69,14 +68,18 @@ client.once("ready", () => {
   }, ROTATE_INTERVAL);
 });
 
-// =====================
-// SERVEUR EXPRESS (RENDER KEEP-ALIVE)
-// =====================
+// ========== SERVEUR RENDER KEEP-ALIVE ==========
 const app = express();
 app.get("/", (_, res) => res.send("Nexa Bot — ONLINE"));
-app.listen(process.env.PORT || 3000);
+app.listen(process.env.PORT || 3000, () => console.log("🌐 Serveur keep-alive prêt"));
 
-// =====================
-// LOGIN
-// =====================
-client.login(process.env.TOKEN);
+// ========== LOGIN ==========
+if (!process.env.TOKEN) {
+  console.error("❌ Le TOKEN est manquant dans .env");
+  process.exit(1);
+}
+
+client.login(process.env.TOKEN).catch(err => {
+  console.error("❌ Erreur de connexion :", err);
+  process.exit(1);
+});
