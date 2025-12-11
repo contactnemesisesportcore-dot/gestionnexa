@@ -3,7 +3,6 @@ module.exports.init = (client) => {
   // =========================
   // ANTI-SPAM
   // =========================
-
   const spamMap = new Map();
 
   client.on("messageCreate", async msg => {
@@ -12,46 +11,35 @@ module.exports.init = (client) => {
     const userId = msg.author.id;
     const now = Date.now();
 
-    if (!spamMap.has(userId)) {
-      spamMap.set(userId, []);
-    }
+    if (!spamMap.has(userId)) spamMap.set(userId, []);
 
     const timestamps = spamMap.get(userId);
     timestamps.push(now);
 
-    // garder seulement les 10s dernières
     const last = timestamps.filter(t => now - t < 10000);
     spamMap.set(userId, last);
 
-    // détecte spam
     if (last.length >= client.config.spamCount) {
+      await msg.delete().catch(() => {});
 
-      // Supprime message
-      msg.delete().catch(() => {});
+      msg.channel.send(`${msg.author}, ⚠ veuillez éviter le spam.`)
+        .then(m => setTimeout(() => m.delete().catch(() => {}), 4000));
 
-      // Avertissement
-      msg.channel.send(`${msg.author}, ⚠ merci d'éviter le spam.`)
-        .then(m => setTimeout(() => m.delete().catch(() => {}), 5000));
-
-      // Logs
       const logs = client.channels.cache.get(client.config.logSpam);
       if (logs) logs.send(
         `🟧 **SPAM détecté**\n` +
         `👤 Utilisateur : ${msg.author} (${msg.author.id})\n` +
-        `📌 Salon : ${msg.channel}`
+        `📌 Salon : ${msg.channel}\n` +
+        `⛔ Timeout : ${client.config.timeoutMinutes} minutes`
       );
 
-      // Timeout
-      msg.member.timeout(client.config.timeoutMinutes * 60 * 1000, "Spam automatique")
-        .catch(() => {});
-
-      // reset
+      msg.member.timeout(client.config.timeoutMinutes * 60 * 1000, "Spam").catch(() => {});
       spamMap.set(userId, []);
     }
   });
 
   // =========================
-  // ANTI-RAID (10 joins / 10 sec)
+  // ANTI-RAID
   // =========================
   const joinTimes = [];
 
@@ -65,10 +53,9 @@ module.exports.init = (client) => {
 
     if (recent.length >= client.config.raidThreshold) {
       const logs = client.channels.cache.get(client.config.logRaid);
-
       if (logs) logs.send(
         `🚨 **ANTI-RAID ACTIVÉ**\n` +
-        `📌 ${recent.length} comptes ont rejoint en ${client.config.raidSeconds}s`
+        `📌 ${recent.length} joins en ${client.config.raidSeconds}s`
       );
     }
   });
@@ -88,53 +75,49 @@ module.exports.init = (client) => {
   // =========================
   // BLACKLIST création salons / rôles
   // =========================
-  const trackCreate = {
-    channels: [],
-    roles: []
-  };
+  const trackCreate = { channels: [], roles: [] };
 
-  const pushLimit = (array, userId) => {
+  function limit(array, userId) {
     array.push({ userId, time: Date.now() });
-    return array.filter(d => Date.now() - d.time < 3600000); // 1h
-  };
+    return array.filter(x => Date.now() - x.time < 3600000);
+  }
 
-  // Salon créé
   client.on("channelCreate", ch => {
     ch.guild.fetchAuditLogs({ type: 10, limit: 1 }).then(logs => {
       const entry = logs.entries.first();
       if (!entry) return;
-
       const userId = entry.executor.id;
-      trackCreate.channels = pushLimit(trackCreate.channels, userId);
 
-      if (trackCreate.channels.filter(c => c.userId === userId).length >= 10) {
+      trackCreate.channels = limit(trackCreate.channels, userId);
+
+      if (trackCreate.channels.filter(x => x.userId === userId).length >= 10) {
         const logsChan = client.channels.cache.get(client.config.logBlacklist);
         if (logsChan) logsChan.send(
-          `⛔ **BLACKLIST — création massive de salons**\n` +
+          `⛔ **BLACKLIST - création massive de salons**\n` +
           `👤 ${entry.executor} (${userId})`
         );
-        ch.guild.members.ban(userId, { reason: "Création massive de salons" }).catch(() => {});
+        ch.guild.members.ban(userId, { reason: "Raid salons" }).catch(() => {});
       }
     });
   });
 
-  // Rôle créé
   client.on("roleCreate", role => {
     role.guild.fetchAuditLogs({ type: 30, limit: 1 }).then(logs => {
       const entry = logs.entries.first();
       if (!entry) return;
-
       const userId = entry.executor.id;
-      trackCreate.roles = pushLimit(trackCreate.roles, userId);
 
-      if (trackCreate.roles.filter(c => c.userId === userId).length >= 10) {
+      trackCreate.roles = limit(trackCreate.roles, userId);
+
+      if (trackCreate.roles.filter(x => x.userId === userId).length >= 10) {
         const logsChan = client.channels.cache.get(client.config.logBlacklist);
         if (logsChan) logsChan.send(
-          `⛔ **BLACKLIST — création massive de rôles**\n` +
+          `⛔ **BLACKLIST - création massive de rôles**\n` +
           `👤 ${entry.executor} (${userId})`
         );
-        role.guild.members.ban(userId, { reason: "Création massive de rôles" }).catch(() => {});
+        role.guild.members.ban(userId, { reason: "Raid rôles" }).catch(() => {});
       }
     });
   });
+
 };
