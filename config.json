@@ -1,14 +1,15 @@
 {
-  "welcomeChannel": "ID_DU_SALON_BIENVENUE",
+  "guildID": "1443299228020506779",
+
+  "welcomeChannel": "1443299713012207748",
   "welcomeRole": "1443299666765807647",
   "welcomeImage": "https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png",
-  
-  "logSpam": "1447271744485199934",
-  "logRaid": "1447271716232368260",
+
+  "logSpam": "1447333719059726407",
+  "logRaid": "1447333745240576110",
   "logBot": "1447271871601971370",
   "logBlacklist": "1447272108668354622",
 
-  "blacklistEnabled": true,
   "raidThreshold": 10,
   "raidSeconds": 10,
   "spamCount": 5,
