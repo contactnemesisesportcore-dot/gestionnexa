@@ -1,6 +1,7 @@
 // ===============================
-// index.js — Nexa Bot
+// NexaBot - INDEX.JS CLEAN
 // ===============================
+
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
@@ -8,7 +9,9 @@ const express = require("express");
 const { Client, GatewayIntentBits, Partials, ActivityType } = require("discord.js");
 const CONFIG = require("./config.json");
 
-// ========== CLIENT ==========
+// ===============================
+// CLIENT DISCORD
+// ===============================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -20,66 +23,108 @@ const client = new Client({
 });
 
 client.config = CONFIG;
+client.commands = new Map();
+const PREFIX = "+"; // Préfixe unique
 
-// ========== CHARGEMENT MODULES ==========
+// ===============================
+// CHARGEMENT DES COMMANDES
+// ===============================
+const commandsPath = path.join(__dirname, "commands");
+if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
+
+fs.readdirSync(commandsPath).forEach(file => {
+  if (!file.endsWith(".js")) return;
+
+  const cmd = require(`./commands/${file}`);
+
+  if (!cmd.name) {
+    console.log(`⚠ Commande ignorée (pas de name) : ${file}`);
+    return;
+  }
+
+  client.commands.set(cmd.name, cmd);
+  console.log(`📦 Commande chargée : +${cmd.name}`);
+});
+
+// ===============================
+// CHARGEMENT DES MODULES
+// ===============================
 const modules = ["bienvenue", "modération"];
 
-modules.forEach(name => {
-  const filepath = path.join(__dirname, `${name}.js`);
-
-  if (!fs.existsSync(filepath)) {
-    return console.warn(`⚠ Module manquant : ${name}.js`);
-  }
+modules.forEach(mod => {
+  const filePath = path.join(__dirname, `${mod}.js`);
+  if (!fs.existsSync(filePath))
+    return console.log(`⚠ Module introuvable : ${mod}`);
 
   try {
-    const mod = require(filepath);
-    if (typeof mod.init !== "function")
-      return console.warn(`⚠ ${name}.js doit contenir : module.exports.init = (client) => {}`);
-
-    mod.init(client);
-    console.log(`✅ Module chargé : ${name}`);
+    const moduleFile = require(filePath);
+    if (typeof moduleFile.init === "function") {
+      moduleFile.init(client);
+      console.log(`🔧 Module chargé : ${mod}`);
+    } else {
+      console.log(`⚠ Le module ${mod} n’a pas d'init()`);
+    }
   } catch (err) {
-    console.error(`❌ Erreur dans ${name}.js :`, err);
+    console.error(`❌ Erreur module ${mod} :`, err);
   }
 });
 
-// ========== STATUT STREAMING ==========
-const ROTATE_INTERVAL = 30000;
-let rotateIndex = 0;
+// ===============================
+// MESSAGECREATE → COMMANDES PREFIX "+"
+// ===============================
+client.on("messageCreate", async message => {
+  if (!message.guild || message.author.bot) return;
 
-client.once("ready", () => {
-  console.log(`✅ Connecté en tant que ${client.user.tag}`);
+  if (!message.content.startsWith(PREFIX)) return;
 
-  setInterval(() => {
-    const guild = client.guilds.cache.get(CONFIG.guildID);
-    const members = guild?.memberCount ?? 0;
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/g);
+  const cmdName = args.shift().toLowerCase();
 
-    const statuses = [
-      `surveille ${members} membres`,
-      `NexaWin`
-    ];
+  const cmd = client.commands.get(cmdName);
+  if (!cmd) return;
 
-    client.user.setActivity(statuses[rotateIndex % statuses.length], {
-      type: ActivityType.Streaming,
-      url: CONFIG.streamURL
-    });
-
-    rotateIndex++;
-  }, ROTATE_INTERVAL);
+  try {
+    cmd.run(client, message, args);
+  } catch (err) {
+    console.error("❌ Erreur commande :", err);
+    message.reply("❌ Une erreur est survenue.").catch(() => {});
+  }
 });
 
-// ========== SERVEUR RENDER KEEP-ALIVE ==========
+// ===============================
+// INTERACTIONS (MENU HELP)
+// ===============================
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isStringSelectMenu()) return;
+  if (interaction.customId !== "help_menu") return;
+
+  const helpHandler = require("./helpMenuHandler.js");
+  helpHandler(interaction);
+});
+
+// ===============================
+// STATUT — STREAMING FIXE
+// ===============================
+client.once("ready", async () => {
+  console.log(`✅ Connecté à ${client.user.tag}`);
+
+  const guild = client.guilds.cache.get("1443299228020506779");
+  const memberCount = guild?.memberCount || 0;
+
+  client.user.setActivity(`NexaWin • ${memberCount} membres`, {
+    type: ActivityType.Streaming,
+    url: CONFIG.streamURL
+  });
+});
+
+// ===============================
+// RENDER KEEP-ALIVE
+// ===============================
 const app = express();
-app.get("/", (_, res) => res.send("Nexa Bot — ONLINE"));
-app.listen(process.env.PORT || 3000, () => console.log("🌐 Serveur keep-alive prêt"));
+app.get("/", (_, res) => res.send("NexaBot • ONLINE"));
+app.listen(process.env.PORT || 3000);
 
-// ========== LOGIN ==========
-if (!process.env.TOKEN) {
-  console.error("❌ Le TOKEN est manquant dans .env");
-  process.exit(1);
-}
-
-client.login(process.env.TOKEN).catch(err => {
-  console.error("❌ Erreur de connexion :", err);
-  process.exit(1);
-});
+// ===============================
+// LOGIN
+// ===============================
+client.login(process.env.TOKEN);
