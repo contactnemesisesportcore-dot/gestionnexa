@@ -1,174 +1,126 @@
-// security.js — NexaBot Anti-Selfbot Ultra
-
-const { EmbedBuilder } = require("discord.js");
+// =====================================================
+// SECURITY.SELFBOT.JS — PROTECTION EXTRÊME
+// ZÉRO COMMANDE • ZÉRO PRÉFIXE • SANCTION IMMÉDIATE
+// =====================================================
 
 module.exports.init = (client) => {
 
-  const {
-    securityLogs,
-    blockedPrefixes,
-    trustedRoles,
-    trustedUsers,
-    limits,
-    suspicionPoints,
-    suspicionThreshold,
-    securityTimeoutMinutes
-  } = client.config;
+  const cfg = client.config;
+  const activity = new Map();
 
-  const userStats = new Map();
-
+  // ===============================
+  // UTILS
+  // ===============================
   const isTrusted = (member) => {
     if (!member) return false;
-    if (trustedUsers.includes(member.id)) return true;
-    return member.roles.cache.some(r => trustedRoles.includes(r.id));
+    if (cfg.trustedUsers.includes(member.id)) return true;
+    return member.roles.cache.some(r => cfg.trustedRoles.includes(r.id));
   };
 
-  const logSecurity = async (guild, data) => {
-    const ch = guild.channels.cache.get(securityLogs);
-    if (!ch) return;
-
-    const embed = new EmbedBuilder()
-      .setTitle("🛡️ Anti-Selfbot — Détection")
-      .setColor(0xFF0000)
-      .addFields(
-        { name: "Utilisateur", value: `${data.user.tag} (${data.user.id})` },
-        { name: "Raison", value: data.reason },
-        { name: "Score", value: `${data.score}` },
-        { name: "Action", value: data.action }
-      )
-      .setTimestamp();
-
-    ch.send({ embeds: [embed] }).catch(() => {});
+  const log = async (guild, text) => {
+    const ch = guild.channels.cache.get(cfg.securityLogs);
+    if (ch) ch.send(text).catch(() => {});
   };
 
-  client.on("messageCreate", async message => {
-    if (!message.guild || message.author.bot) return;
-    if (isTrusted(message.member)) return;
-
-    const now = Date.now();
-    const content = message.content || "";
-
-    if (!userStats.has(message.author.id)) {
-      userStats.set(message.author.id, {
-        score: 0,
-        messages: []
-      });
-    }
-
-    const stats = userStats.get(message.author.id);
-    stats.messages.push(now);
-    stats.messages = stats.messages.filter(t => now - t < limits.seconds * 1000);
-
-    // ===== 1️⃣ Préfixes suspects =====
-    if (blockedPrefixes.some(p => content.startsWith(p))) {
-      stats.score += suspicionPoints.prefix;
-    }
-
-    // ===== 2️⃣ Flood vitesse inhumaine =====
-    if (stats.messages.length >= limits.messages) {
-      stats.score += suspicionPoints.flood;
-    }
-
-    // ===== 3️⃣ Mentions abusives =====
-    if (message.mentions.users.size >= limits.mentions) {
-      stats.score += suspicionPoints.mentions;
-    }
-
-    // ===== 4️⃣ Emojis spam =====
-    const emojiCount = (content.match(/<a?:\w+:\d+>/g) || []).length;
-    if (emojiCount >= limits.emojis) {
-      stats.score += suspicionPoints.emojis;
-    }
-
-    // ===== 5️⃣ ASCII / lignes =====
-    if (content.length >= limits.asciiLength || content.split("\n").length >= limits.lines) {
-      stats.score += suspicionPoints.ascii;
-    }
-
-    // ===== SANCTION =====
-    if (stats.score >= suspicionThreshold) {
-      await message.delete().catch(() => {});
-      await message.member.timeout(
-        securityTimeoutMinutes * 60 * 1000,
-        "Anti-Selfbot : comportement automatisé"
+  const punish = async (msg, reason) => {
+    await msg.delete().catch(() => {});
+    if (msg.member?.moderatable) {
+      await msg.member.timeout(
+        cfg.securityTimeoutMinutes * 60 * 1000,
+        reason
       ).catch(() => {});
-
-      await logSecurity(message.guild, {
-        user: message.author,
-        reason: "Comportement assimilé à un self-bot",
-        score: stats.score,
-        action: `Timeout ${securityTimeoutMinutes} min`
-      });
-
-      userStats.delete(message.author.id);
     }
-  });
+  };
 
-  console.log("🛡️ Module SECURITY chargé (anti-selfbot actif)");
-};
+  // ===============================
+  // MESSAGE MONITOR
+  // ===============================
+  client.on("messageCreate", async (msg) => {
+    try {
+      if (!msg.guild) return;
+      if (msg.author.bot) return;
+      if (msg.guild.id !== cfg.guildID) return;
+      if (isTrusted(msg.member)) return;
 
-// =========================
-// ANTI-EDIT SPAM (SELFBOT)
-// =========================
+      const uid = msg.author.id;
+      const now = Date.now();
+      const content = msg.content || "";
 
-const editTracker = new Map();
+      // ===============================
+      // TRACKING TEMPOREL (ANTI MACRO)
+      // ===============================
+      if (!activity.has(uid)) activity.set(uid, []);
+      const times = activity.get(uid).filter(t => now - t < cfg.limits.seconds * 1000);
+      times.push(now);
+      activity.set(uid, times);
 
-client.on("messageUpdate", async (oldMsg, newMsg) => {
-  try {
-    if (!newMsg.guild) return;
-    if (!newMsg.author || newMsg.author.bot) return;
-
-    const member = newMsg.member;
-    if (!member) return;
-
-    // whitelist
-    if (
-      client.config.trustedUsers.includes(member.id) ||
-      member.roles.cache.some(r => client.config.trustedRoles.includes(r.id))
-    ) return;
-
-    const key = `${member.id}:${newMsg.id}`;
-    const now = Date.now();
-
-    if (!editTracker.has(key)) {
-      editTracker.set(key, []);
-    }
-
-    const edits = editTracker.get(key);
-    edits.push(now);
-
-    // garder seulement les 10 dernières secondes
-    const recent = edits.filter(t => now - t < 10000);
-    editTracker.set(key, recent);
-
-    // seuil de modifications (inhumain)
-    if (recent.length >= 3) {
-
-      // suppression message
-      newMsg.delete().catch(() => {});
-
-      // timeout
-      await member.timeout(
-        client.config.securityTimeoutMinutes * 60 * 1000,
-        "Anti-selfbot : édition de message automatisée"
-      ).catch(() => {});
-
-      // logs
-      const logs = client.channels.cache.get(client.config.securityLogs);
-      if (logs) {
-        logs.send(
-          `🚨 **ANTI-SELFBOT — MESSAGE ÉDITÉ**\n` +
-          `👤 ${member.user.tag} (${member.id})\n` +
-          `📌 Salon : ${newMsg.channel}\n` +
-          `🧠 Détection : éditions rapides automatisées\n` +
-          `⏱️ Sanction : timeout ${client.config.securityTimeoutMinutes} min`
+      // ===============================
+      // 1️⃣ PREFIX = SELFBOT
+      // ===============================
+      if (cfg.blockedPrefixes.some(p => content.startsWith(p))) {
+        await punish(msg, "Selfbot (prefix interdit)");
+        await log(msg.guild,
+          `🚨 **SELFBOT / PREFIX**
+👤 ${msg.author.tag} (${uid})
+📝 ${content.slice(0, 300)}`
         );
+        return;
       }
 
-      editTracker.delete(key);
-    }
+      // ===============================
+      // 2️⃣ VITESSE INHUMAINE
+      // ===============================
+      if (times.length >= cfg.limits.messages) {
+        await punish(msg, "Flood inhumain");
+        await log(msg.guild,
+          `🚨 **SELFBOT / FLOOD**
+👤 ${msg.author.tag} (${uid})`
+        );
+        return;
+      }
 
-  } catch (err) {
-    console.error("Erreur anti-edit spam :", err);
-  }
-});
+      // ===============================
+      // 3️⃣ MENTIONS MASSIVES
+      // ===============================
+      if (msg.mentions.users.size >= cfg.limits.mentions) {
+        await punish(msg, "Mentions abusives");
+        await log(msg.guild,
+          `🚨 **SELFBOT / MENTIONS**
+👤 ${msg.author.tag} (${uid})`
+        );
+        return;
+      }
+
+      // ===============================
+      // 4️⃣ EMOJIS / MACRO
+      // ===============================
+      const emojis = content.match(/<a?:\w+:\d+>|[\u{1F300}-\u{1FAFF}]/gu) || [];
+      if (emojis.length >= cfg.limits.emojis) {
+        await punish(msg, "Emoji macro");
+        await log(msg.guild,
+          `🚨 **SELFBOT / EMOJIS**
+👤 ${msg.author.tag} (${uid})`
+        );
+        return;
+      }
+
+      // ===============================
+      // 5️⃣ ASCII / PAYLOAD
+      // ===============================
+      if (
+        content.length >= cfg.limits.asciiLength ||
+        content.split("\n").length >= cfg.limits.lines
+      ) {
+        await punish(msg, "ASCII / Payload");
+        await log(msg.guild,
+          `🚨 **SELFBOT / ASCII**
+👤 ${msg.author.tag} (${uid})`
+        );
+        return;
+      }
+
+    } catch (e) {
+      console.error("SECURITY.SELFBOT ERROR:", e);
+    }
+  });
+};
