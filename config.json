@@ -1,19 +1,74 @@
 {
   "guildID": "1443299228020506779",
 
+  // ======================
+  // BIENVENUE
+  // ======================
   "welcomeChannel": "1443299713012207748",
   "welcomeRole": "1443299666765807647",
-  "welcomeImage": "https://media.discordapp.net/attachments/1431355214052589659/1442619898114211931/Capture_decran_2025-11-24_215331.png",
+  "welcomeImage": "https://media.discordapp.net/attachments/1431355214052589659/1448409079994257632/Capture_decran_2025-12-07_225523.png?ex=693f1c12&is=693dca92&hm=b59c1d7bb6fa2f8ee5619e7b20e28bd9e61fe69170c318b2bbb6cc02cac149b3&=&format=webp&quality=lossless",
 
+  // ======================
+  // LOGS MODÉRATION
+  // ======================
   "logSpam": "1447333719059726407",
   "logRaid": "1447333745240576110",
   "logBot": "1447271871601971370",
   "logBlacklist": "1447272108668354622",
 
+  // ======================
+  // PARAMÈTRES MODÉRATION
+  // ======================
   "raidThreshold": 10,
   "raidSeconds": 10,
   "spamCount": 5,
   "timeoutMinutes": 12,
 
-  "streamURL": "https://www.twitch.tv/nexacorp"
+  // ======================
+  // STREAMING
+  // ======================
+  "streamURL": "https://www.twitch.tv/nexacorp",
+
+  // ======================
+  // 🔐 ANTI-SELFBOT / ANTI-ABUS (NIVEAU MAX)
+  // ======================
+  "securityLogs": "1443299895980068955",
+
+  "trustedRoles": [
+    "1443299585920598089",
+    "1443299593675735121"
+  ],
+
+  "trustedUsers": [
+    "1398784567946645545"
+  ],
+
+  "blockedPrefixes": [
+    "&",
+    "!",
+    ".",
+    "$",
+    ">",
+    "<"
+  ],
+
+  "limits": {
+    "messages": 5,
+    "seconds": 6,
+    "mentions": 5,
+    "emojis": 8,
+    "lines": 10,
+    "asciiLength": 400
+  },
+
+  "suspicionPoints": {
+    "prefix": 3,
+    "flood": 5,
+    "ascii": 4,
+    "mentions": 3,
+    "emojis": 3
+  },
+
+  "suspicionThreshold": 10,
+  "securityTimeoutMinutes": 10
 }
