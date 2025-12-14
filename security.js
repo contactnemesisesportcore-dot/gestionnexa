@@ -106,3 +106,69 @@ module.exports.init = (client) => {
 
   console.log("🛡️ Module SECURITY chargé (anti-selfbot actif)");
 };
+
+// =========================
+// ANTI-EDIT SPAM (SELFBOT)
+// =========================
+
+const editTracker = new Map();
+
+client.on("messageUpdate", async (oldMsg, newMsg) => {
+  try {
+    if (!newMsg.guild) return;
+    if (!newMsg.author || newMsg.author.bot) return;
+
+    const member = newMsg.member;
+    if (!member) return;
+
+    // whitelist
+    if (
+      client.config.trustedUsers.includes(member.id) ||
+      member.roles.cache.some(r => client.config.trustedRoles.includes(r.id))
+    ) return;
+
+    const key = `${member.id}:${newMsg.id}`;
+    const now = Date.now();
+
+    if (!editTracker.has(key)) {
+      editTracker.set(key, []);
+    }
+
+    const edits = editTracker.get(key);
+    edits.push(now);
+
+    // garder seulement les 10 dernières secondes
+    const recent = edits.filter(t => now - t < 10000);
+    editTracker.set(key, recent);
+
+    // seuil de modifications (inhumain)
+    if (recent.length >= 3) {
+
+      // suppression message
+      newMsg.delete().catch(() => {});
+
+      // timeout
+      await member.timeout(
+        client.config.securityTimeoutMinutes * 60 * 1000,
+        "Anti-selfbot : édition de message automatisée"
+      ).catch(() => {});
+
+      // logs
+      const logs = client.channels.cache.get(client.config.securityLogs);
+      if (logs) {
+        logs.send(
+          `🚨 **ANTI-SELFBOT — MESSAGE ÉDITÉ**\n` +
+          `👤 ${member.user.tag} (${member.id})\n` +
+          `📌 Salon : ${newMsg.channel}\n` +
+          `🧠 Détection : éditions rapides automatisées\n` +
+          `⏱️ Sanction : timeout ${client.config.securityTimeoutMinutes} min`
+        );
+      }
+
+      editTracker.delete(key);
+    }
+
+  } catch (err) {
+    console.error("Erreur anti-edit spam :", err);
+  }
+});
