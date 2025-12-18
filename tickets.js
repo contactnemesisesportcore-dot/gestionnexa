@@ -126,7 +126,7 @@ module.exports.init = client => {
   =============================== */
   client.once("ready", async () => {
     try {
-      const channel = await client.channels.fetch("1443299733392199871");
+      const channel = await client.channels.fetch(config.panelChannel);
       if (!channel) return console.log("❌ Impossible de trouver le panelChannel.");
 
       const embed = new EmbedBuilder()
@@ -188,7 +188,7 @@ module.exports.init = client => {
         ticketCounter++;
 
         const ticketChannel = await interaction.guild.channels.create({
-          name: `ticket-${interaction.user.username}`.toLowerCase(),
+          name: config.ticketNameFormat.replace("{username}", interaction.user.username).toLowerCase(),
           type: ChannelType.GuildText,
           parent: categoryId,
           permissionOverwrites: [
