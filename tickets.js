@@ -11,7 +11,9 @@ const {
 const cooldowns = new Map();
 let ticketCounter = 0;
 
-// Fonction pour récupérer le formulaire correspondant au type de ticket
+/* ===============================
+   FONCTION POUR LES FORMULAIRES
+=============================== */
 function getFormulaire(type) {
   const forms = {
     moderation: {
@@ -113,174 +115,175 @@ Explique clairement ton problème :
   return forms[type];
 }
 
+/* ===============================
+   INITIALISATION DU SYSTÈME
+=============================== */
 module.exports.init = client => {
   const config = client.config.ticketSystem;
 
   /* ===============================
-     PANNEAU DE CRÉATION DE TICKET
+     ENVOI DU PANEL DE TICKETS AU DÉMARRAGE
   =============================== */
   client.once("ready", async () => {
-    const channel = await client.channels.fetch("1443299733392199871").catch(() => null);
-    if (!channel) return;
+    try {
+      const channel = await client.channels.fetch("1443299733392199871");
+      if (!channel) return console.log("❌ Impossible de trouver le panelChannel.");
 
-    const embed = new EmbedBuilder()
-      .setColor(config.ticketColor)
-      .setTitle("🎫 Ouvrir un ticket")
-      .setDescription(
-        "🎫 **Avant d’ouvrir ton ticket :**\n" +
-        "Merci de sélectionner le motif de ta demande.\n\n" +
-        "🛡️ Recrutement Modération / Joueur\n" +
-        "🎨 Candidature Studio Créatif\n" +
-        "🤝 Demande de Partenariat\n" +
-        "🆘 Aide\n\n" +
-        "Merci de rester courtois et professionnel."
-      )
-      .setImage(config.ticketImage);
+      const embed = new EmbedBuilder()
+        .setColor(config.ticketColor)
+        .setTitle("🎫 Ouvrir un ticket")
+        .setDescription(
+          "🎫 **Avant d’ouvrir ton ticket :**\n" +
+          "Merci de sélectionner le motif de ta demande.\n\n" +
+          "🛡️ Recrutement Modération / Joueur\n" +
+          "🎨 Candidature Studio Créatif\n" +
+          "🤝 Demande de Partenariat\n" +
+          "🆘 Aide\n\n" +
+          "Merci de rester courtois et professionnel."
+        )
+        .setImage(config.ticketImage);
 
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("ticket_select")
-      .setPlaceholder("Sélectionne le type de ticket")
-      .addOptions([
-        { label: "Aide", value: "aide", emoji: "🆘" },
-        { label: "Recrutement Joueur", value: "joueur", emoji: "🎮" },
-        { label: "Recrutement Modération", value: "moderation", emoji: "🛡️" },
-        { label: "Studio Créatif", value: "studio", emoji: "🎨" },
-        { label: "Partenariat", value: "partenariat", emoji: "🤝" }
-      ]);
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId("ticket_select")
+        .setPlaceholder("Sélectionne le type de ticket")
+        .addOptions([
+          { label: "Aide", value: "aide", emoji: "🆘" },
+          { label: "Recrutement Joueur", value: "joueur", emoji: "🎮" },
+          { label: "Recrutement Modération", value: "moderation", emoji: "🛡️" },
+          { label: "Studio Créatif", value: "studio", emoji: "🎨" },
+          { label: "Partenariat", value: "partenariat", emoji: "🤝" }
+        ]);
 
-    await channel.send({
-      embeds: [embed],
-      components: [new ActionRowBuilder().addComponents(menu)]
-    });
+      await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
+      console.log("✅ Panel de tickets envoyé dans le channel " + channel.id);
+
+    } catch (error) {
+      console.error("❌ Erreur lors de l'envoi du panel de tickets :", error);
+    }
   });
 
   /* ===============================
-     CRÉATION DU TICKET
+     GESTION DES INTERACTIONS
   =============================== */
   client.on("interactionCreate", async interaction => {
-    if (interaction.isStringSelectMenu() && interaction.customId === "ticket_select") {
-      const userId = interaction.user.id;
-      const now = Date.now();
+    try {
+      // ----------------------------
+      // SÉLECTION DU TYPE DE TICKET
+      // ----------------------------
+      if (interaction.isStringSelectMenu() && interaction.customId === "ticket_select") {
+        const userId = interaction.user.id;
+        const now = Date.now();
+        const data = cooldowns.get(userId) || [];
+        const recent = data.filter(t => now - t < 3600000);
 
-      const data = cooldowns.get(userId) || [];
-      const recent = data.filter(t => now - t < 3600000);
+        if (recent.length >= config.maxTicketsPerHour) {
+          return interaction.reply({ content: "❌ Limite atteinte (3 tickets/heure).", ephemeral: true });
+        }
 
-      if (recent.length >= config.maxTicketsPerHour) {
-        return interaction.reply({
-          content: "❌ Tu as atteint la limite de **3 tickets par heure**. Merci de patienter.",
-          ephemeral: true
+        recent.push(now);
+        cooldowns.set(userId, recent);
+
+        const type = interaction.values[0];
+        const categoryId = config.categories[type];
+        ticketCounter++;
+
+        const ticketChannel = await interaction.guild.channels.create({
+          name: `ticket-${interaction.user.username}`.toLowerCase(),
+          type: ChannelType.GuildText,
+          parent: categoryId,
+          permissionOverwrites: [
+            { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            ...config.staffRoles.map(r => ({
+              id: r,
+              allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels]
+            }))
+          ]
         });
+
+        // Embed Motif
+        const motifEmbed = new EmbedBuilder()
+          .setColor(config.ticketColor)
+          .setTitle("📌 Motif du ticket")
+          .setDescription(`**Motif sélectionné :** ${type.charAt(0).toUpperCase() + type.slice(1)}`)
+          .setFooter({ text: `Ticket #${ticketCounter}` });
+
+        // Embed Formulaire
+        const form = getFormulaire(type);
+        const formEmbed = new EmbedBuilder()
+          .setColor(config.ticketColor)
+          .setTitle(form.title)
+          .setDescription(form.content)
+          .setFooter({ text: `Ticket #${ticketCounter}` });
+
+        // Boutons du ticket
+        const buttons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId("claim").setLabel("Claim").setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("close").setLabel("Fermer").setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId("reopen").setLabel("Rouvrir").setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId("delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("help").setLabel("AIDE").setStyle(ButtonStyle.Secondary)
+        );
+
+        await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${config.mentionEveryone}>`, embeds: [motifEmbed, formEmbed], components: [buttons] });
+        await interaction.reply({ content: "✅ Ton ticket a été créé.", ephemeral: true });
+
+        // Log
+        log(client, `📥 Ticket ouvert`, interaction.user, ticketChannel.name);
       }
 
-      recent.push(now);
-      cooldowns.set(userId, recent);
+      // ----------------------------
+      // BOUTONS DU TICKET
+      // ----------------------------
+      if (interaction.isButton()) {
+        const ticketChannel = interaction.channel;
+        if (!ticketChannel.name.startsWith("ticket-")) return;
 
-      const type = interaction.values[0];
-      const categoryId = config.categories[type];
-      ticketCounter++;
+        const memberIsStaff = interaction.member.roles.cache.some(r => config.staffRoles.includes(r.id));
 
-      const channel = await interaction.guild.channels.create({
-        name: `ticket-${interaction.user.username}`.toLowerCase(),
-        type: ChannelType.GuildText,
-        parent: categoryId,
-        permissionOverwrites: [
-          { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-          ...config.staffRoles.map(r => ({
-            id: r,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ManageChannels
-            ]
-          }))
-        ]
-      });
+        if (interaction.customId === "help") {
+          return interaction.reply({
+            content: "📺 **Besoin d’aide pour remplir le formulaire ?**\n➡️ PC : " + config.helpVideos.pc + "\n➡️ Mobile : " + config.helpVideos.mobile,
+            ephemeral: true
+          });
+        }
 
-      // Embed Motif
-      const motifEmbed = new EmbedBuilder()
-        .setColor(config.ticketColor)
-        .setTitle("📌 Motif du ticket")
-        .setDescription(`**Motif sélectionné :** ${type.charAt(0).toUpperCase() + type.slice(1)}`)
-        .setFooter({ text: `Ticket #${ticketCounter}` });
+        if (!memberIsStaff) return interaction.reply({ content: "❌ Action réservée au staff.", ephemeral: true });
 
-      // Embed Formulaire spécifique
-      const form = getFormulaire(type);
-      const formEmbed = new EmbedBuilder()
-        .setColor(config.ticketColor)
-        .setTitle(form.title)
-        .setDescription(form.content)
-        .setFooter({ text: `Ticket #${ticketCounter}` });
+        switch (interaction.customId) {
+          case "claim":
+            await ticketChannel.send(`📌 Ticket claim par ${interaction.user}`);
+            log(client, "📌 Ticket claim", interaction.user, ticketChannel.name);
+            break;
+          case "close":
+            await ticketChannel.permissionOverwrites.edit(ticketChannel.guild.id, { ViewChannel: false });
+            await ticketChannel.send("🔒 Ticket fermé.");
+            log(client, "🔒 Ticket fermé", interaction.user, ticketChannel.name);
+            break;
+          case "reopen":
+            await ticketChannel.permissionOverwrites.edit(ticketChannel.guild.id, { ViewChannel: true });
+            await ticketChannel.send("🔓 Ticket rouvert.");
+            log(client, "🔓 Ticket rouvert", interaction.user, ticketChannel.name);
+            break;
+          case "delete":
+            log(client, "🗑️ Ticket supprimé", interaction.user, ticketChannel.name);
+            await ticketChannel.delete();
+            break;
+        }
 
-      const buttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("claim").setLabel("Claim").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("close").setLabel("Fermer").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("reopen").setLabel("Rouvrir").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("help").setLabel("AIDE").setStyle(ButtonStyle.Secondary)
-      );
-
-      await channel.send({
-        content: `<@${interaction.user.id}> <@&${config.mentionEveryone}>`,
-        embeds: [motifEmbed, formEmbed],
-        components: [buttons]
-      });
-
-      await interaction.reply({ content: "✅ Ton ticket a été créé.", ephemeral: true });
-      log(client, `📥 Ticket ouvert`, interaction.user, channel.name);
-    }
-
-    // ===============================
-    // BOUTONS DU TICKET
-    // ===============================
-    if (interaction.isButton()) {
-      const channel = interaction.channel;
-      if (!channel.name.startsWith("ticket-")) return;
-
-      if (interaction.customId === "help") {
-        return interaction.reply({
-          content:
-            "📺 **Besoin d’aide pour remplir le formulaire ?**\n" +
-            "➡️ PC : " + config.helpVideos.pc + "\n" +
-            "➡️ Téléphone : " + config.helpVideos.mobile,
-          ephemeral: true
-        });
+        await interaction.deferUpdate();
       }
 
-      if (!interaction.member.roles.cache.some(r => config.staffRoles.includes(r.id)))
-        return interaction.reply({ content: "❌ Action réservée au staff.", ephemeral: true });
-
-      if (interaction.customId === "claim") {
-        await channel.send(`📌 Ticket **claim** par ${interaction.user}`);
-        log(client, "📌 Ticket claim", interaction.user, channel.name);
-      }
-
-      if (interaction.customId === "close") {
-        await channel.permissionOverwrites.edit(channel.guild.id, { ViewChannel: false });
-        await channel.send("🔒 Ticket fermé.");
-        log(client, "🔒 Ticket fermé", interaction.user, channel.name);
-      }
-
-      if (interaction.customId === "reopen") {
-        await channel.permissionOverwrites.edit(channel.guild.id, { ViewChannel: true });
-        await channel.send("🔓 Ticket rouvert.");
-        log(client, "🔓 Ticket rouvert", interaction.user, channel.name);
-      }
-
-      if (interaction.customId === "delete") {
-        log(client, "🗑️ Ticket supprimé", interaction.user, channel.name);
-        await channel.delete();
-      }
-
-      await interaction.deferUpdate();
+    } catch (err) {
+      console.error("❌ Erreur interaction :", err);
     }
   });
 };
 
 /* ===============================
-   LOGS TICKETS
+   FONCTION DE LOG
 =============================== */
-function log(client, action, user, channel) {
+function log(client, action, user, channelName) {
   const logChannel = client.channels.cache.get(client.config.ticketSystem.logsChannel);
   if (!logChannel) return;
 
@@ -290,7 +293,7 @@ function log(client, action, user, channel) {
     .addFields(
       { name: "Action", value: action },
       { name: "Utilisateur", value: `${user.tag} (${user.id})` },
-      { name: "Ticket", value: channel },
+      { name: "Ticket", value: channelName },
       { name: "Date", value: `<t:${Math.floor(Date.now() / 1000)}:F>` }
     );
 
