@@ -9,15 +9,14 @@
   "logRaid": "1447333745240576110",
   "logBot": "1447271871601971370",
   "logBlacklist": "1447272108668354622",
+  "securityLogs": "1443299895980068955",
+
+  "streamURL": "https://www.twitch.tv/nexacorp",
 
   "raidThreshold": 10,
   "raidSeconds": 10,
   "spamCount": 5,
   "timeoutMinutes": 12,
-
-  "streamURL": "https://www.twitch.tv/nexacorp",
-
-  "securityLogs": "1443299895980068955",
 
   "trustedRoles": [
     "1443299585920598089",
@@ -26,15 +25,6 @@
 
   "trustedUsers": [
     "1398784567946645545"
-  ],
-
-  "blockedPrefixes": [
-    "&",
-    "!",
-    ".",
-    "$",
-    ">",
-    "<"
   ],
 
   "limits": {
@@ -46,14 +36,59 @@
     "asciiLength": 400
   },
 
-  "suspicionPoints": {
-    "prefix": 3,
-    "flood": 5,
-    "ascii": 4,
-    "mentions": 3,
-    "emojis": 3
-  },
+  "ticketSystem": {
+    "enabled": true,
+    "panelChannel": "1443299733392199871",
+    "logsChannel": "1447334006440853504",
+    "mentionEveryone": "1443299228020506779",
 
-  "suspicionThreshold": 10,
-  "securityTimeoutMinutes": 10
+    "ticketNameFormat": "ticket-{username}",
+
+    "maxTicketsPerHour": 3,
+
+    "ticketColor": "#8B5CF6",
+    "ticketImage": "https://media.discordapp.net/attachments/1431355214052589659/1448409079994257632/Capture_decran_2025-12-07_225523.png",
+
+    "categories": {
+      "aide": "1451344734193975346",
+      "joueur": "1443299700777287895",
+      "moderation": "1443299699472728105",
+      "partenariat": "1443299704506159176",
+      "studio": "1443299702085914707"
+    },
+
+    "staffRoles": [
+      "1443299585920598089",
+      "1443299591855276062",
+      "1443299593675735121",
+      "1443299595114512436",
+      "1443299595886006381",
+      "1443299597220057259",
+      "1443299598046203994",
+      "1443299605860057208"
+    ],
+
+    "specialRoles": {
+      "joueur": [
+        "1443299603385421956",
+        "1443299619772563537"
+      ],
+      "studio": [
+        "1443299607957475360"
+      ],
+      "partenariat": [
+        "1443299611987939570"
+      ]
+    },
+
+    "permissions": {
+      "closeHideAuthor": true,
+      "staffAlwaysAccess": true
+    },
+
+    "helpVideos": {
+      "pc": "https://cdn.discordapp.com/attachments/1431355214052589659/1451349134887092224/0FOBQ04.mkv",
+      "mobile": "https://cdn.discordapp.com/attachments/1431355214052589659/1451349696789479597/Screenrecorder-2025-12-19-00-04-23-624.mp4?ex=6945da3c&is=694488bc&hm=b54878d6e124c3d8c333f467d1cfb576984fb70611f4875622890d82a648f593&"
+    }
+  }
 }
