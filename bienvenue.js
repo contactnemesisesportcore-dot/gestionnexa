@@ -16,7 +16,7 @@ module.exports.init = (client) => {
         .setDescription(
           `👋 Bienvenue **${member}** !\n` +
           `Nous sommes désormais **${member.guild.memberCount} membres**.\n\n` +
-          `📚 Règlement : <#1443299713012207748>\n` +
+          `📚 Règlement : <#1443299714744451233>\n` +
           `🎫 Tickets : <#1443299733392199871>\n\n` +
           `Passe une excellente journée sur Nexa Esport !`
         );
