@@ -49,7 +49,7 @@ fs.readdirSync(commandsPath).forEach(file => {
 // ===============================
 // CHARGEMENT DES MODULES
 // ===============================
-const modules = ["bienvenue", "modération", "modération", "fun"];
+const modules = ["bienvenue", "modération", "modération", "fun", "règlement"];
 
 modules.forEach(mod => {
   const filePath = path.join(__dirname, `${mod}.js`);
