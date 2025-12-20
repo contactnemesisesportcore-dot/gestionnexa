@@ -1,301 +1,213 @@
+// ===============================
+// MODULE TICKETS • NEXABOT
+// ===============================
+
 const {
-  ChannelType,
-  PermissionsBitField,
+  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
-  StringSelectMenuBuilder
+  PermissionsBitField,
+  ChannelType
 } = require("discord.js");
 
-const cooldowns = new Map();
-let ticketCounter = 0;
+module.exports = (client) => {
 
-/* ===============================
-   FONCTION POUR LES FORMULAIRES
-=============================== */
-function getFormulaire(type) {
-  const forms = {
-    moderation: {
-      title: "🛡️ Formulaire — Recrutement Modération",
-      content: `
-**Nom ou Pseudo :**  
-**Âge :**  
-**Pays / Fuseau horaire :**  
-**Discord :**  
-**Disponibilités :**  
+  const config = client.config;
 
-🎯 **Expérience & Compétences**  
-- As-tu déjà été staff ? Oui / Non  
-- Si oui, où et quel rôle ?  
-- Bots maîtrisés ?  
+  // ===============================
+  // MÉMOIRE
+  // ===============================
+  const ticketCooldown = new Map();
+  let ticketIndex = 0;
 
-🧠 **Gestion**  
-- Comment gères-tu un conflit ?  
-- Réaction face à un membre irrespectueux ?  
+  // ===============================
+  // UTILITAIRES
+  // ===============================
+  const isStaff = (member) =>
+    member.roles.cache.some(r => config.ticket.staffRoles.includes(r.id));
 
-💡 **Motivation**  
-- Pourquoi ce poste ?  
-- Qualités principales ?  
-- Défauts ?  
-- Vision d’un bon modérateur ?  
-
-🎧 Micro : Oui / Non
-`
-    },
-
-    joueur: {
-      title: "🎮 Formulaire — Recrutement Joueur",
-      content: `
-**Pseudo Epic Games :**  
-**Pseudo Discord :**  
-**PR EU actuel :**  
-
-📸 **Capture du PR EU**  
-
-🗣️ **Présentation**  
-- Rôle / Style de jeu :  
-- Objectifs :  
-- Forces :  
-- Axes d’amélioration :
-`
-    },
-
-    studio: {
-      title: "🎨 Formulaire — Studio Créatif",
-      content: `
-**Nom / Pseudo :**  
-**Discord :**  
-**Âge :**  
-**Pays / Fuseau horaire :**  
-🎧 Micro : Oui / Non  
-
-🧠 Expérience :  
-📦 Disponibilité :  
-☐ Temps plein ☐ Temps partiel ☐ Projet ponctuel  
-
-💰 Collaboration :  
-☐ Bénévolat ☐ Freelance ☐ Stage  
-
-🔗 Portfolio / Liens :  
-
-🤝 Travail en équipe : Oui / Non
-`
-    },
-
-    partenariat: {
-      title: "🤝 Formulaire — Partenariat",
-      content: `
-**Nom de la structure :**  
-**Contact :**  
-**Discord :**  
-**Email :**  
-**Pays :**  
-
-🎯 Type de partenariat :  
-☐ Visibilité ☐ Média ☐ Sponsoring  
-
-📈 Audience / Statistiques :  
-💰 Budget (si sponsoring) :
-`
-    },
-
-    aide: {
-      title: "🆘 Formulaire — Aide",
-      content: `
-Explique clairement ton problème :  
-
-- Problème rencontré :  
-- Depuis quand ?  
-- Capture ou détail utile :
-`
-    }
+  const logTicket = async (guild, embed) => {
+    const logChannel = guild.channels.cache.get(config.ticket.logs);
+    if (logChannel) logChannel.send({ embeds: [embed] });
   };
 
-  return forms[type];
-}
+  // ===============================
+  // FORMULAIRES
+  // ===============================
+  const FORMS = {
+    moderation: `**Nom / Pseudo :**
+**Âge :**
+**Pays / Fuseau horaire :**
+**Discord :**
+**Disponibilités :**
 
-/* ===============================
-   INITIALISATION DU SYSTÈME
-=============================== */
-module.exports.init = client => {
-  const config = client.config.ticketSystem;
+🎯 **Expérience**
+As-tu déjà été staff ? Où ? Rôle ?
 
-  /* ===============================
-     ENVOI DU PANEL DE TICKETS AU DÉMARRAGE
-  =============================== */
-  client.once("ready", async () => {
-    try {
-      const channel = await client.channels.fetch(config.panelChannel);
-      if (!channel) return console.log("❌ Impossible de trouver le panelChannel.");
+🛠️ Outils maîtrisés :
 
-      const embed = new EmbedBuilder()
-        .setColor(config.ticketColor)
-        .setTitle("🎫 Ouvrir un ticket")
-        .setDescription(
-          "🎫 **Avant d’ouvrir ton ticket :**\n" +
-          "Merci de sélectionner le motif de ta demande.\n\n" +
-          "🛡️ Recrutement Modération / Joueur\n" +
-          "🎨 Candidature Studio Créatif\n" +
-          "🤝 Demande de Partenariat\n" +
-          "🆘 Aide\n\n" +
-          "Merci de rester courtois et professionnel."
-        )
-        .setImage(config.ticketImage);
+💡 Comment gères-tu un conflit ?
 
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId("ticket_select")
-        .setPlaceholder("Sélectionne le type de ticket")
-        .addOptions([
-          { label: "Aide", value: "aide", emoji: "🆘" },
-          { label: "Recrutement Joueur", value: "joueur", emoji: "🎮" },
-          { label: "Recrutement Modération", value: "moderation", emoji: "🛡️" },
-          { label: "Studio Créatif", value: "studio", emoji: "🎨" },
-          { label: "Partenariat", value: "partenariat", emoji: "🤝" }
-        ]);
+💬 Motivation :`,
 
-      await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
-      console.log("✅ Panel de tickets envoyé dans le channel " + channel.id);
+    joueur: `**Pseudo Epic Games :**
+**Pseudo Discord :**
+**PR EU :**
 
-    } catch (error) {
-      console.error("❌ Erreur lors de l'envoi du panel de tickets :", error);
-    }
-  });
+📸 Capture PR :
 
-  /* ===============================
-     GESTION DES INTERACTIONS
-  =============================== */
+🎮 Rôle / Style :
+🎯 Objectifs :
+💪 Forces :
+⚠️ Axes d’amélioration :`,
+
+    studio: `👤 Nom / Pseudo :
+🆔 Discord :
+🗓️ Âge :
+🌍 Pays :
+
+🎧 Micro ? Oui / Non
+🧠 Expérience :
+📦 Disponibilité :
+💰 Collaboration :
+🔗 Liens :
+💬 Motivation :`,
+
+    partenariat: `🏢 Nom de la structure :
+📇 Contact :
+🆔 Discord :
+📧 Email :
+🌍 Pays :
+
+🎯 Type de partenariat :
+🤝 Contrepartie :
+📈 Audience :
+💰 Budget :`,
+
+    aide: `❓ Explique clairement ton problème :
+📎 Screenshots si nécessaire :
+🕒 Depuis quand ?`
+  };
+
+  // ===============================
+  // INTERACTIONS
+  // ===============================
   client.on("interactionCreate", async interaction => {
-    try {
-      // ----------------------------
-      // SÉLECTION DU TYPE DE TICKET
-      // ----------------------------
-      if (interaction.isStringSelectMenu() && interaction.customId === "ticket_select") {
-        const userId = interaction.user.id;
-        const now = Date.now();
-        const data = cooldowns.get(userId) || [];
-        const recent = data.filter(t => now - t < 3600000);
+    if (!interaction.isButton()) return;
 
-        if (recent.length >= config.maxTicketsPerHour) {
-          return interaction.reply({ content: "❌ Limite atteinte (3 tickets/heure).", ephemeral: true });
-        }
+    const { guild, user, member } = interaction;
 
-        recent.push(now);
-        cooldowns.set(userId, recent);
+    // ===============================
+    // CRÉATION TICKET
+    // ===============================
+    if (interaction.customId.startsWith("ticket_create_")) {
 
-        const type = interaction.values[0];
-        const categoryId = config.categories[type];
-        ticketCounter++;
+      const type = interaction.customId.split("_")[2];
 
-        const ticketChannel = await interaction.guild.channels.create({
-          name: config.ticketNameFormat.replace("{username}", interaction.user.username).toLowerCase(),
-          type: ChannelType.GuildText,
-          parent: categoryId,
-          permissionOverwrites: [
-            { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-            ...config.staffRoles.map(r => ({
-              id: r,
-              allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels]
-            }))
-          ]
+      const now = Date.now();
+      const history = ticketCooldown.get(user.id) || [];
+      const recent = history.filter(t => now - t < 3600000);
+
+      if (recent.length >= 3) {
+        return interaction.reply({
+          content: "⏳ Tu as atteint la limite de **3 tickets par heure**.",
+          ephemeral: true
         });
-
-        // Embed Motif
-        const motifEmbed = new EmbedBuilder()
-          .setColor(config.ticketColor)
-          .setTitle("📌 Motif du ticket")
-          .setDescription(`**Motif sélectionné :** ${type.charAt(0).toUpperCase() + type.slice(1)}`)
-          .setFooter({ text: `Ticket #${ticketCounter}` });
-
-        // Embed Formulaire
-        const form = getFormulaire(type);
-        const formEmbed = new EmbedBuilder()
-          .setColor(config.ticketColor)
-          .setTitle(form.title)
-          .setDescription(form.content)
-          .setFooter({ text: `Ticket #${ticketCounter}` });
-
-        // Boutons du ticket
-        const buttons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("claim").setLabel("Claim").setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId("close").setLabel("Fermer").setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId("reopen").setLabel("Rouvrir").setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId("delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("help").setLabel("AIDE").setStyle(ButtonStyle.Secondary)
-        );
-
-        await ticketChannel.send({ content: `<@${interaction.user.id}> <@&${config.mentionEveryone}>`, embeds: [motifEmbed, formEmbed], components: [buttons] });
-        await interaction.reply({ content: "✅ Ton ticket a été créé.", ephemeral: true });
-
-        // Log
-        log(client, `📥 Ticket ouvert`, interaction.user, ticketChannel.name);
       }
 
-      // ----------------------------
-      // BOUTONS DU TICKET
-      // ----------------------------
-      if (interaction.isButton()) {
-        const ticketChannel = interaction.channel;
-        if (!ticketChannel.name.startsWith("ticket-")) return;
+      ticketCooldown.set(user.id, [...recent, now]);
+      ticketIndex++;
 
-        const memberIsStaff = interaction.member.roles.cache.some(r => config.staffRoles.includes(r.id));
+      const channel = await guild.channels.create({
+        name: `ticket-${user.username}`,
+        type: ChannelType.GuildText,
+        parent: config.ticket.categories[type],
+        permissionOverwrites: [
+          {
+            id: guild.id,
+            deny: [PermissionsBitField.Flags.ViewChannel]
+          },
+          {
+            id: user.id,
+            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          },
+          ...config.ticket.staffRoles.map(r => ({
+            id: r,
+            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          }))
+        ]
+      });
 
-        if (interaction.customId === "help") {
-          return interaction.reply({
-            content: "📺 **Besoin d’aide pour remplir le formulaire ?**\n➡️ PC : " + config.helpVideos.pc + "\n➡️ Mobile : " + config.helpVideos.mobile,
-            ephemeral: true
-          });
-        }
+      // ===============================
+      // EMBED FORMULAIRE
+      // ===============================
+      const embed = new EmbedBuilder()
+        .setColor("#a855f7")
+        .setThumbnail(config.ticket.thumbnail)
+        .setTitle(`🎫 Ticket ${type.toUpperCase()}`)
+        .setDescription(FORMS[type])
+        .setFooter({ text: `Ticket #${ticketIndex} • ${user.tag}` })
+        .setTimestamp();
 
-        if (!memberIsStaff) return interaction.reply({ content: "❌ Action réservée au staff.", ephemeral: true });
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ticket_close").setLabel("Fermer").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("ticket_claim").setLabel("Claim").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("ticket_delete").setLabel("Supprimer").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("ticket_aide").setLabel("AIDE").setStyle(ButtonStyle.Success)
+      );
 
-        switch (interaction.customId) {
-          case "claim":
-            await ticketChannel.send(`📌 Ticket claim par ${interaction.user}`);
-            log(client, "📌 Ticket claim", interaction.user, ticketChannel.name);
-            break;
-          case "close":
-            await ticketChannel.permissionOverwrites.edit(ticketChannel.guild.id, { ViewChannel: false });
-            await ticketChannel.send("🔒 Ticket fermé.");
-            log(client, "🔒 Ticket fermé", interaction.user, ticketChannel.name);
-            break;
-          case "reopen":
-            await ticketChannel.permissionOverwrites.edit(ticketChannel.guild.id, { ViewChannel: true });
-            await ticketChannel.send("🔓 Ticket rouvert.");
-            log(client, "🔓 Ticket rouvert", interaction.user, ticketChannel.name);
-            break;
-          case "delete":
-            log(client, "🗑️ Ticket supprimé", interaction.user, ticketChannel.name);
-            await ticketChannel.delete();
-            break;
-        }
+      await channel.send({
+        content: `@everyone | Ticket ouvert par <@${user.id}>`,
+        embeds: [embed],
+        components: [buttons]
+      });
 
-        await interaction.deferUpdate();
-      }
+      await interaction.reply({ content: "✅ Ticket créé.", ephemeral: true });
 
-    } catch (err) {
-      console.error("❌ Erreur interaction :", err);
+      await logTicket(guild, new EmbedBuilder()
+        .setColor("Green")
+        .setTitle("🎫 Ticket ouvert")
+        .addFields(
+          { name: "Utilisateur", value: user.tag },
+          { name: "Type", value: type },
+          { name: "ID", value: `#${ticketIndex}` }
+        )
+        .setTimestamp()
+      );
+    }
+
+    // ===============================
+    // ACTIONS STAFF
+    // ===============================
+    if (!interaction.channel.name.startsWith("ticket-")) return;
+
+    if (!isStaff(member)) {
+      return interaction.reply({ content: "⛔ Action réservée au staff.", ephemeral: true });
+    }
+
+    if (interaction.customId === "ticket_close") {
+      await interaction.channel.permissionOverwrites.edit(interaction.channel.topic, {
+        ViewChannel: false
+      });
+
+      await interaction.reply({ content: "🔒 Ticket fermé.", ephemeral: true });
+    }
+
+    if (interaction.customId === "ticket_delete") {
+      await interaction.reply({ content: "🗑️ Ticket supprimé.", ephemeral: true });
+      await interaction.channel.delete();
+    }
+
+    if (interaction.customId === "ticket_claim") {
+      await interaction.reply({ content: `📌 Ticket pris en charge par ${member}.` });
+    }
+
+    if (interaction.customId === "ticket_aide") {
+      await interaction.reply({
+        content: "🎥 Choisis ta plateforme : PC ou Téléphone",
+        ephemeral: true
+      });
     }
   });
 };
-
-/* ===============================
-   FONCTION DE LOG
-=============================== */
-function log(client, action, user, channelName) {
-  const logChannel = client.channels.cache.get(client.config.ticketSystem.logsChannel);
-  if (!logChannel) return;
-
-  const embed = new EmbedBuilder()
-    .setColor("#8B5CF6")
-    .setTitle("📑 Logs Ticket")
-    .addFields(
-      { name: "Action", value: action },
-      { name: "Utilisateur", value: `${user.tag} (${user.id})` },
-      { name: "Ticket", value: channelName },
-      { name: "Date", value: `<t:${Math.floor(Date.now() / 1000)}:F>` }
-    );
-
-  logChannel.send({ embeds: [embed] });
-}
