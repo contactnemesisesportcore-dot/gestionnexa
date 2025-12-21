@@ -49,7 +49,7 @@ for (const file of fs.readdirSync(commandsPath)) {
 // ===============================
 // CHARGEMENT DES MODULES (EVENTS)
 // ===============================
-const modules = ["bienvenue", "modération", "maintenance", "fun", "ranked"];
+const modules = ["bienvenue", "modération", "maintenance", "owner"];
 
 for (const mod of modules) {
   const filePath = path.join(__dirname, `${mod}.js`);
