@@ -1,5 +1,5 @@
 // ===============================
-// NexaBot - INDEX.JS CLEAN
+// NexaBot - INDEX.JS CLEAN (FIX)
 // ===============================
 
 require("dotenv").config();
@@ -32,29 +32,31 @@ const PREFIX = "+"; // Préfixe unique
 const commandsPath = path.join(__dirname, "commands");
 if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
 
-fs.readdirSync(commandsPath).forEach(file => {
-  if (!file.endsWith(".js")) return;
+for (const file of fs.readdirSync(commandsPath)) {
+  if (!file.endsWith(".js")) continue;
 
   const cmd = require(`./commands/${file}`);
 
-  if (!cmd.name) {
-    console.log(`⚠ Commande ignorée (pas de name) : ${file}`);
-    return;
+  if (!cmd.name || typeof cmd.run !== "function") {
+    console.log(`⚠ Commande invalide ignorée : ${file}`);
+    continue;
   }
 
   client.commands.set(cmd.name, cmd);
   console.log(`📦 Commande chargée : +${cmd.name}`);
-});
+}
 
 // ===============================
-// CHARGEMENT DES MODULES
+// CHARGEMENT DES MODULES (EVENTS)
 // ===============================
-const modules = ["bienvenue", "modération", "modération", "fun", "règlement"];
+const modules = ["bienvenue", "modération", "règlement"];
 
-modules.forEach(mod => {
+for (const mod of modules) {
   const filePath = path.join(__dirname, `${mod}.js`);
-  if (!fs.existsSync(filePath))
-    return console.log(`⚠ Module introuvable : ${mod}`);
+  if (!fs.existsSync(filePath)) {
+    console.log(`⚠ Module introuvable : ${mod}.js`);
+    continue;
+  }
 
   try {
     const moduleFile = require(filePath);
@@ -62,29 +64,32 @@ modules.forEach(mod => {
       moduleFile.init(client);
       console.log(`🔧 Module chargé : ${mod}`);
     } else {
-      console.log(`⚠ Le module ${mod} n’a pas d'init()`);
+      console.log(`⚠ ${mod}.js n’a pas de init(client)`);
     }
   } catch (err) {
     console.error(`❌ Erreur module ${mod} :`, err);
   }
-});
+}
 
 // ===============================
 // MESSAGECREATE → COMMANDES PREFIX "+"
 // ===============================
 client.on("messageCreate", async message => {
   if (!message.guild || message.author.bot) return;
-
   if (!message.content.startsWith(PREFIX)) return;
 
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/g);
-  const cmdName = args.shift().toLowerCase();
+  const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
+  const cmdName = args.shift()?.toLowerCase();
 
   const cmd = client.commands.get(cmdName);
-  if (!cmd) return;
+  if (!cmd) {
+    return message.reply(
+      `❌ Commande inconnue.\nFais \`${PREFIX}fun\` pour voir les commandes.`
+    ).catch(() => {});
+  }
 
   try {
-    cmd.run(client, message, args);
+    await cmd.run(client, message, args);
   } catch (err) {
     console.error("❌ Erreur commande :", err);
     message.reply("❌ Une erreur est survenue.").catch(() => {});
@@ -92,21 +97,10 @@ client.on("messageCreate", async message => {
 });
 
 // ===============================
-// INTERACTIONS (MENU HELP)
-// ===============================
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isStringSelectMenu()) return;
-  if (interaction.customId !== "help_menu") return;
-
-  const helpHandler = require("./helpMenuHandler.js");
-  helpHandler(interaction);
-});
-
-// ===============================
 // STATUT — STREAMING FIXE
 // ===============================
 client.once("ready", async () => {
-  console.log(`✅ Connecté à ${client.user.tag}`);
+  console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
   const guild = client.guilds.cache.get("1443299228020506779");
   const memberCount = guild?.memberCount || 0;
