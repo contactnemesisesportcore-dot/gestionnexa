@@ -2,74 +2,106 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "fun",
-  description: "Commandes fun pour divertir vos membres",
-  execute(message, args) {
+  description: "Commandes fun",
+  run(client, message, args) {
+
     const sub = args[0];
-    const embed = new EmbedBuilder().setColor("Random");
+    const embed = new EmbedBuilder()
+      .setColor("Random")
+      .setFooter({ text: "NexaBot • Fun" });
 
     if (!sub) {
-      embed.setTitle("🎉 Commandes Fun Disponibles")
-        .setDescription("`8ball`, `coinflip`, `dice`, `hug`, `kiss`, `love`, `say`, `joke`")
-        .setFooter({ text: "NexaBot • Fun" });
+      embed
+        .setTitle("🎉 Commandes Fun")
+        .setDescription(`
++fun 8ball
++fun dice
++fun coinflip
++fun hug @user
++fun kiss @user
++fun slap @user
++fun love @user
++fun say <texte>
++fun joke
++fun avatar [@user]
++fun ping
+        `);
       return message.channel.send({ embeds: [embed] });
     }
 
-    switch(sub.toLowerCase()) {
-      case "8ball":
-        const responses = ["Oui", "Non", "Peut-être", "Certainement", "Jamais", "Impossible", "Demande plus tard"];
-        embed.setTitle("🎱 8Ball")
-          .setDescription(responses[Math.floor(Math.random() * responses.length)]);
-        break;
+    switch (sub.toLowerCase()) {
 
-      case "coinflip":
-        embed.setTitle("🪙 Coin Flip")
-          .setDescription(Math.random() < 0.5 ? "Pile" : "Face");
+      case "8ball":
+        embed.setTitle("🎱 8Ball")
+          .setDescription(["Oui", "Non", "Peut-être", "Certainement", "Jamais", "Reviens plus tard"][Math.floor(Math.random()*6)]);
         break;
 
       case "dice":
-        embed.setTitle("🎲 Dice")
-          .setDescription(`Tu as fait **${Math.floor(Math.random()*6)+1}**`);
+        embed.setTitle("🎲 Dé")
+          .setDescription(`Résultat : **${Math.floor(Math.random()*6)+1}**`);
         break;
 
-      case "hug":
-        const hugUser = message.mentions.users.first();
-        if(!hugUser) return message.reply("❌ Mentionne quelqu’un pour faire un câlin.");
+      case "coinflip":
+        embed.setTitle("🪙 Pile ou Face")
+          .setDescription(Math.random() < 0.5 ? "Pile" : "Face");
+        break;
+
+      case "hug": {
+        const user = message.mentions.users.first();
+        if (!user) return message.reply("❌ Mentionne quelqu’un.");
         embed.setTitle("🤗 Câlin")
-          .setDescription(`${message.author.username} fait un câlin à ${hugUser.username}`);
+          .setDescription(`${message.author.username} fait un câlin à ${user.username}`);
         break;
+      }
 
-      case "kiss":
-        const kissUser = message.mentions.users.first();
-        if(!kissUser) return message.reply("❌ Mentionne quelqu’un pour envoyer un bisou.");
+      case "kiss": {
+        const user = message.mentions.users.first();
+        if (!user) return message.reply("❌ Mentionne quelqu’un.");
         embed.setTitle("💋 Bisou")
-          .setDescription(`${message.author.username} envoie un bisou à ${kissUser.username}`);
+          .setDescription(`${message.author.username} embrasse ${user.username}`);
         break;
+      }
 
-      case "love":
-        const loveUser = message.mentions.users.first();
-        if(!loveUser) return message.reply("❌ Mentionne quelqu’un pour calculer l'amour.");
-        embed.setTitle("❤️ Love Calculator")
-          .setDescription(`${message.author.username} aime ${loveUser.username} à **${Math.floor(Math.random()*100)}%**`);
+      case "slap": {
+        const user = message.mentions.users.first();
+        if (!user) return message.reply("❌ Mentionne quelqu’un.");
+        embed.setTitle("👋 Slap")
+          .setDescription(`${message.author.username} gifle ${user.username}`);
         break;
+      }
+
+      case "love": {
+        const user = message.mentions.users.first();
+        if (!user) return message.reply("❌ Mentionne quelqu’un.");
+        embed.setTitle("❤️ Love")
+          .setDescription(`Compatibilité : **${Math.floor(Math.random()*100)}%**`);
+        break;
+      }
 
       case "say":
-        if(!args[1]) return message.reply("❌ Tu dois écrire quelque chose.");
-        embed.setTitle("💬 Say")
-          .setDescription(args.slice(1).join(" "));
+        if (args.length < 2) return message.reply("❌ Tu dois écrire un message.");
+        embed.setTitle("💬 Say").setDescription(args.slice(1).join(" "));
         break;
 
       case "joke":
-        const jokes = [
-          "Pourquoi les plongeurs plongent-ils toujours en arrière et jamais en avant ? Parce que sinon ils tombent dans le bateau !",
-          "Pourquoi les mathématiciens sont-ils mauvais en natation ? Parce qu’ils nagent dans des nombres imaginaires !",
-          "Pourquoi les programmeurs confondent Halloween et Noël ? Parce que OCT 31 = DEC 25."
-        ];
         embed.setTitle("😂 Blague")
-          .setDescription(jokes[Math.floor(Math.random() * jokes.length)]);
+          .setDescription("Pourquoi les développeurs aiment le noir ? Parce que la lumière attire les bugs.");
+        break;
+
+      case "avatar": {
+        const user = message.mentions.users.first() || message.author;
+        embed.setTitle(`🖼️ Avatar de ${user.username}`)
+          .setImage(user.displayAvatarURL({ size: 512 }));
+        break;
+      }
+
+      case "ping":
+        embed.setTitle("🏓 Ping")
+          .setDescription(`Latence : **${client.ws.ping}ms**`);
         break;
 
       default:
-        return message.channel.send("❌ Sous-commande inconnue. Tape `+fun` pour voir toutes les sous-commandes.");
+        return message.reply("❌ Sous-commande inconnue. Tape `+fun`.");
     }
 
     message.channel.send({ embeds: [embed] });
