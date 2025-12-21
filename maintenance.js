@@ -2,10 +2,6 @@
 // MODULE MAINTENANCE AUTO
 // ===============================
 
-const MAINTENANCE_START = 18; // 18h
-const MAINTENANCE_END = 23;   // 23h
-
-// Salons bloqués pendant la maintenance
 const BLOCKED_CHANNELS = [
   "1443299798223556730",
   "1443299804028600491",
@@ -16,35 +12,54 @@ const BLOCKED_CHANNELS = [
   "1443299824924364840"
 ];
 
+let maintenanceActive = false; // Variable pour activer/désactiver la maintenance
+
 module.exports.init = (client) => {
+  // Gestion des messages dans les salons bloqués
   client.on("messageCreate", async (message) => {
     if (!message.guild) return;
+    if (message.author.bot) return;
+
+    const content = message.content.trim();
+
+    // Gestion de la commande +maintenance
+    if (content.startsWith("+maintenance")) {
+      // Vérifie que l'utilisateur a la permission de gérer le serveur
+      if (!message.member.permissions.has("MANAGE_GUILD")) {
+        return message.reply("❌ Vous n'avez pas la permission d'utiliser cette commande.");
+      }
+
+      const args = content.split(" ").slice(1);
+      if (args.length === 0) {
+        return message.reply("❌ Utilisation : `+maintenance on` ou `+maintenance off`");
+      }
+
+      const state = args[0].toLowerCase();
+      if (state === "on") {
+        maintenanceActive = true;
+        return message.channel.send("🛠️ Maintenance activée !");
+      } else if (state === "off") {
+        maintenanceActive = false;
+        return message.channel.send("✅ Maintenance désactivée !");
+      } else {
+        return message.reply("❌ Utilisation : `+maintenance on` ou `+maintenance off`");
+      }
+    }
+
+    // Blocage des messages si maintenance active dans les channels bloqués
     if (!BLOCKED_CHANNELS.includes(message.channel.id)) return;
-
-    const now = new Date();
-    const hour = now.getHours();
-
-    // Vérifie si on est dans la plage de maintenance
-    const inMaintenance =
-      hour >= MAINTENANCE_START && hour < MAINTENANCE_END;
-
-    if (!inMaintenance) return;
+    if (!maintenanceActive) return;
 
     try {
       // Supprime le message
       await message.delete();
 
-      // Message d'information du bot
+      // Message d'avertissement
       const warning = await message.channel.send({
-        content: `🚧 **Maintenance en cours** 🚧
-
-❌ Il est **interdit d’écrire dans ce salon** entre **18h et 23h**.
-
-🕒 **Fin de la maintenance : 23h**
-Merci de patienter.`,
+        content: `🚧 **Maintenance en cours** 🚧\n\n❌ Il est **interdit d’écrire dans ce salon** pour le moment.\nMerci de patienter.`,
       });
 
-      // Auto-suppression du message du bot après 10 secondes
+      // Supprime automatiquement après 10 secondes
       setTimeout(() => {
         warning.delete().catch(() => {});
       }, 10000);
@@ -54,5 +69,5 @@ Merci de patienter.`,
     }
   });
 
-  console.log("🛠️ Module maintenance activé (18h → 23h)");
+  console.log("🛠️ Module maintenance prêt (+maintenance on/off).");
 };
