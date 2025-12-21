@@ -1,12 +1,15 @@
 // ===============================
-// RANKED 1V1 SYSTEM (FULL)
+// RANKED 1V1 SYSTEM (DISCORD.JS v14)
 // ===============================
 
 const fs = require("fs");
 const {
-  MessageEmbed,
-  MessageActionRow,
-  MessageButton
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  PermissionsBitField
 } = require("discord.js");
 
 // ===============================
@@ -21,7 +24,7 @@ const CONFIG = {
   },
   categoryRanked: "1452375479796629665",
   supportRole: "1443299584737673244",
-  embedColor: "#8A2BE2",
+  embedColor: 0x8A2BE2,
   footerIcon: "https://media.discordapp.net/attachments/1431355214052589659/1452087016966717596/L5isR1B.png",
   dataFile: "./rankedData.json"
 };
@@ -29,12 +32,9 @@ const CONFIG = {
 // ===============================
 // DATA
 // ===============================
-let data = {};
-if (fs.existsSync(CONFIG.dataFile)) {
-  data = JSON.parse(fs.readFileSync(CONFIG.dataFile));
-} else {
-  fs.writeFileSync(CONFIG.dataFile, JSON.stringify({}));
-}
+let data = fs.existsSync(CONFIG.dataFile)
+  ? JSON.parse(fs.readFileSync(CONFIG.dataFile))
+  : {};
 
 function saveData() {
   fs.writeFileSync(CONFIG.dataFile, JSON.stringify(data, null, 2));
@@ -54,25 +54,24 @@ function getPlayer(user) {
 }
 
 // ===============================
-// LEADERBOARD EMBED
+// LEADERBOARD
 // ===============================
 function leaderboardEmbed() {
   const sorted = Object.values(data).sort((a, b) => b.points - a.points);
 
-  const embed = new MessageEmbed()
+  const embed = new EmbedBuilder()
     .setTitle("🏆 Leaderboard Ranked 1v1")
     .setColor(CONFIG.embedColor)
-    .setFooter({ iconURL: CONFIG.footerIcon, text: "Ranked System" });
+    .setFooter({ text: "Ranked System", iconURL: CONFIG.footerIcon });
 
   if (sorted.length === 0) {
     embed.setDescription("Aucun joueur classé pour le moment.");
   } else {
     sorted.forEach((p, i) => {
-      embed.addField(
-        `#${i + 1} — ${p.username}`,
-        `✅ Victoires : ${p.wins}\n❌ Défaites : ${p.losses}\n💎 Points : ${p.points}`,
-        false
-      );
+      embed.addFields({
+        name: `#${i + 1} — ${p.username}`,
+        value: `✅ Victoires : ${p.wins}\n❌ Défaites : ${p.losses}\n💎 Points : ${p.points}`
+      });
     });
   }
   return embed;
@@ -90,17 +89,17 @@ async function sendInitialEmbeds(client) {
     await info.bulkDelete(20).catch(() => {});
     info.send({
       embeds: [
-        new MessageEmbed()
+        new EmbedBuilder()
           .setTitle("ℹ️ Informations Ranked 1v1")
           .setDescription(
             "• Clique sur **1v1** pour chercher un match\n" +
             "• Salon privé créé automatiquement\n" +
             "• +10 points victoire\n" +
             "• -2 points défaite\n" +
-            "• Support disponible en cas de triche"
+            "• Support en cas de triche"
           )
           .setColor(CONFIG.embedColor)
-          .setFooter({ iconURL: CONFIG.footerIcon, text: "Ranked System" })
+          .setFooter({ text: "Ranked System", iconURL: CONFIG.footerIcon })
       ]
     });
   }
@@ -109,18 +108,18 @@ async function sendInitialEmbeds(client) {
     await match.bulkDelete(20).catch(() => {});
     match.send({
       embeds: [
-        new MessageEmbed()
+        new EmbedBuilder()
           .setTitle("🎮 Match Ranked")
           .setDescription("Clique sur le bouton pour lancer un **1v1 classé**.")
           .setColor(CONFIG.embedColor)
-          .setFooter({ iconURL: CONFIG.footerIcon, text: "Matchmaking" })
+          .setFooter({ text: "Matchmaking", iconURL: CONFIG.footerIcon })
       ],
       components: [
-        new MessageActionRow().addComponents(
-          new MessageButton()
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
             .setCustomId("ranked_1v1")
             .setLabel("⚔️ 1v1")
-            .setStyle("PRIMARY")
+            .setStyle(ButtonStyle.Primary)
         )
       ]
     });
@@ -130,18 +129,18 @@ async function sendInitialEmbeds(client) {
     await support.bulkDelete(20).catch(() => {});
     support.send({
       embeds: [
-        new MessageEmbed()
+        new EmbedBuilder()
           .setTitle("🎫 Support Ranked")
           .setDescription("Clique ci-dessous pour ouvrir un **ticket support**.")
           .setColor(CONFIG.embedColor)
-          .setFooter({ iconURL: CONFIG.footerIcon, text: "Support Ranked" })
+          .setFooter({ text: "Support Ranked", iconURL: CONFIG.footerIcon })
       ],
       components: [
-        new MessageActionRow().addComponents(
-          new MessageButton()
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
             .setCustomId("ranked_support")
             .setLabel("Ouvrir un ticket")
-            .setStyle("SECONDARY")
+            .setStyle(ButtonStyle.Secondary)
         )
       ]
     });
@@ -175,27 +174,25 @@ module.exports.init = (client) => {
       if (opponent) {
         waiting.delete(opponent.id);
 
-        const channel = await guild.channels.create(
-          `match-${interaction.user.username}-vs-${opponent.username}`,
-          {
-            type: "GUILD_TEXT",
-            parent: CONFIG.categoryRanked,
-            permissionOverwrites: [
-              { id: guild.roles.everyone, deny: ["VIEW_CHANNEL"] },
-              { id: interaction.user.id, allow: ["VIEW_CHANNEL", "SEND_MESSAGES"] },
-              { id: opponent.id, allow: ["VIEW_CHANNEL", "SEND_MESSAGES"] },
-              { id: CONFIG.supportRole, allow: ["VIEW_CHANNEL", "SEND_MESSAGES"] }
-            ]
-          }
-        );
+        const channel = await guild.channels.create({
+          name: `match-${interaction.user.username}-vs-${opponent.username}`,
+          type: ChannelType.GuildText,
+          parent: CONFIG.categoryRanked,
+          permissionOverwrites: [
+            { id: guild.roles.everyone, deny: [PermissionsBitField.Flags.ViewChannel] },
+            { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            { id: opponent.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+            { id: CONFIG.supportRole, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+          ]
+        });
 
         channel.send({
           embeds: [
-            new MessageEmbed()
+            new EmbedBuilder()
               .setTitle("⚔️ Match 1v1")
               .setDescription(`${interaction.user} VS ${opponent.username}`)
               .setColor(CONFIG.embedColor)
-              .setFooter({ iconURL: CONFIG.footerIcon, text: "Ranked Match" })
+              .setFooter({ text: "Ranked Match", iconURL: CONFIG.footerIcon })
           ]
         });
 
@@ -208,26 +205,24 @@ module.exports.init = (client) => {
 
     // SUPPORT
     if (interaction.customId === "ranked_support") {
-      const channel = await guild.channels.create(
-        `support-${interaction.user.username}`,
-        {
-          type: "GUILD_TEXT",
-          parent: CONFIG.categoryRanked,
-          permissionOverwrites: [
-            { id: guild.roles.everyone, deny: ["VIEW_CHANNEL"] },
-            { id: interaction.user.id, allow: ["VIEW_CHANNEL", "SEND_MESSAGES"] },
-            { id: CONFIG.supportRole, allow: ["VIEW_CHANNEL", "SEND_MESSAGES"] }
-          ]
-        }
-      );
+      const channel = await guild.channels.create({
+        name: `support-${interaction.user.username}`,
+        type: ChannelType.GuildText,
+        parent: CONFIG.categoryRanked,
+        permissionOverwrites: [
+          { id: guild.roles.everyone, deny: [PermissionsBitField.Flags.ViewChannel] },
+          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+          { id: CONFIG.supportRole, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+        ]
+      });
 
       channel.send({
         embeds: [
-          new MessageEmbed()
+          new EmbedBuilder()
             .setTitle("🎫 Ticket Support")
             .setDescription("Explique ton problème ici.")
             .setColor(CONFIG.embedColor)
-            .setFooter({ iconURL: CONFIG.footerIcon, text: "Support Ranked" })
+            .setFooter({ text: "Support Ranked", iconURL: CONFIG.footerIcon })
         ]
       });
 
@@ -259,7 +254,7 @@ module.exports.init = (client) => {
 
     if (["+victoire", "+defaite"].includes(cmd)) {
       const lb = await message.guild.channels.fetch(CONFIG.salons.leaderboard);
-      lb.bulkDelete(20).catch(() => {});
+      await lb.bulkDelete(20).catch(() => {});
       lb.send({ embeds: [leaderboardEmbed()] });
     }
 
