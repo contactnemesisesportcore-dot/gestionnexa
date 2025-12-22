@@ -2,113 +2,85 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "owner",
-  description: "Commandes réservées au propriétaire du serveur",
-  run: async (client, message, args) => {
 
-    // 🔐 Vérification OWNER serveur
+  async run(client, message, args) {
+    // 🔐 sécurité : owner du serveur uniquement
     if (message.guild.ownerId !== message.author.id) {
-      return message.reply("❌ Cette commande est réservée au **propriétaire du serveur**.");
+      return message.reply("❌ Cette commande est réservée au propriétaire du serveur.");
     }
 
-    const sub = args[0];
+    const sub = args[0]?.toLowerCase();
 
-    // ===============================
-    // 📖 AIDE OWNER
-    // ===============================
+    // =========================
+    // +owner
+    // =========================
     if (!sub) {
       const embed = new EmbedBuilder()
-        .setColor("#8b5cf6") // violet
+        .setColor("#8b5cf6")
         .setTitle("👑 Commandes Owner")
-        .setDescription(`
-Voici les commandes **réservées au propriétaire du serveur** :
-
-🔧 **Gestion**
-\`+owner maintenance on\`
-\`+owner maintenance off\`
-
-🧹 **Bot**
-\`+owner clearbot\`
-\`+owner restart\`
-
-📢 **Annonce**
-\`+owner say <message>\`
-
-ℹ️ **Infos**
-\`+owner info\`
-        `)
-        .setFooter({ text: "Accès strictement réservé au propriétaire" });
+        .setDescription(
+          "**Commandes disponibles :**\n\n" +
+          "`+owner info`\n" +
+          "`+owner maintenance on/off`\n" +
+          "`+owner restart`\n" +
+          "`+owner shutdown`"
+        );
 
       return message.reply({ embeds: [embed] });
     }
 
-    // ===============================
-    // 🛠️ MAINTENANCE ON/OFF
-    // ===============================
+    // =========================
+    // +owner info
+    // =========================
+    if (sub === "info") {
+      const embed = new EmbedBuilder()
+        .setColor("#8b5cf6")
+        .setTitle("ℹ️ Informations du bot")
+        .addFields(
+          { name: "Nom", value: client.user.username, inline: true },
+          { name: "Serveurs", value: `${client.guilds.cache.size}`, inline: true },
+          { name: "Ping", value: `${client.ws.ping}ms`, inline: true }
+        );
+
+      return message.reply({ embeds: [embed] });
+    }
+
+    // =========================
+    // +owner maintenance on/off
+    // =========================
     if (sub === "maintenance") {
       const state = args[1];
-      if (!state || !["on", "off"].includes(state)) {
+
+      if (!["on", "off"].includes(state)) {
         return message.reply("❌ Utilisation : `+owner maintenance on/off`");
       }
 
       client.maintenance = state === "on";
 
       return message.reply(
-        state === "on"
-          ? "🚧 **Maintenance activée**"
-          : "✅ **Maintenance désactivée**"
+        `🛠️ Maintenance **${state === "on" ? "activée" : "désactivée"}**.`
       );
     }
 
-    // ===============================
-    // 🧹 CLEAR MESSAGES BOT
-    // ===============================
-    if (sub === "clearbot") {
-      const messages = await message.channel.messages.fetch({ limit: 50 });
-      const botMessages = messages.filter(m => m.author.id === client.user.id);
-
-      await message.channel.bulkDelete(botMessages, true);
-      return message.reply("🧹 Messages du bot supprimés.");
-    }
-
-    // ===============================
-    // 🔄 RESTART BOT
-    // ===============================
+    // =========================
+    // +owner restart
+    // =========================
     if (sub === "restart") {
-      await message.reply("🔄 Redémarrage du bot...");
+      await message.reply("♻️ Redémarrage du bot...");
       process.exit(0);
     }
 
-    // ===============================
-    // 📢 SAY
-    // ===============================
-    if (sub === "say") {
-      const text = args.slice(1).join(" ");
-      if (!text) return message.reply("❌ Message manquant.");
-
-      await message.delete();
-      return message.channel.send(text);
+    // =========================
+    // +owner shutdown
+    // =========================
+    if (sub === "shutdown") {
+      await message.reply("🛑 Arrêt du bot...");
+      process.exit(1);
     }
 
-    // ===============================
-    // ℹ️ INFO BOT
-    // ===============================
-    if (sub === "info") {
-      const embed = new EmbedBuilder()
-        .setColor("#8b5cf6")
-        .setTitle("ℹ️ Informations Bot")
-        .addFields(
-          { name: "👑 Owner", value: `<@${message.guild.ownerId}>`, inline: true },
-          { name: "🧠 Node.js", value: process.version, inline: true },
-          { name: "📦 Discord.js", value: require("discord.js").version, inline: true }
-        )
-        .setTimestamp();
-
-      return message.reply({ embeds: [embed] });
-    }
-
-    // ===============================
-    // ❌ COMMANDE INCONNUE
-    // ===============================
+    // =========================
+    // Inconnu
+    // =========================
     return message.reply("❌ Sous-commande inconnue. Fais `+owner`.");
   }
 };
