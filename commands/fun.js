@@ -13,16 +13,19 @@ module.exports = {
     }
 
     if (sub === "dice") {
+      // ✅ return pour éviter l'exécution multiple
       const roll = Math.floor(Math.random() * 6) + 1;
       return message.reply(`🎲 Tu as lancé un **${roll}**`);
     }
 
     if (sub === "coinflip") {
+      // ✅ return pour éviter l'exécution multiple
       const result = Math.random() < 0.5 ? "Pile" : "Face";
       return message.reply(`🪙 Résultat : **${result}**`);
     }
 
     if (sub === "avatar") {
+      // ✅ return pour éviter l'exécution multiple
       const user = message.mentions.users.first() || message.author;
       return message.reply(user.displayAvatarURL({ dynamic: true, size: 1024 }));
     }
