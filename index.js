@@ -1,7 +1,3 @@
-// ===============================
-// NexaBot - INDEX.JS CLEAN (FIX FINAL)
-// ===============================
-
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
@@ -24,7 +20,7 @@ const client = new Client({
 
 client.config = CONFIG;
 client.commands = new Map();
-const PREFIX = "+"; // ✅ Préfixe OFFICIEL
+const PREFIX = "+"; // Préfixe officiel
 
 // ===============================
 // 🔁 CHARGEMENT RÉCURSIF DES COMMANDES
@@ -80,7 +76,7 @@ for (const mod of modules) {
 
 // ===============================
 // MESSAGECREATE → COMMANDES PREFIX "+"
-// ===============================
+ // ===============================
 client.on("messageCreate", async message => {
   if (!message.guild || message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
@@ -90,9 +86,8 @@ client.on("messageCreate", async message => {
 
   const command = client.commands.get(commandName);
   if (!command) {
-    return message.reply(
-      `❌ Commande inconnue.\nUtilise \`${PREFIX}help\` pour voir les commandes.`
-    ).catch(() => {});
+    // Message simplifié : juste retour si commande inconnue
+    return; // ❌ plus de message qui pollue
   }
 
   try {
