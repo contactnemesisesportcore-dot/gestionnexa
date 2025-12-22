@@ -57,7 +57,7 @@ loadCommands(commandsPath);
 // ===============================
 // CHARGEMENT DES MODULES (EVENTS)
 // ===============================
-const modules = ["bienvenue", "modération", "maintenance", "owner"];
+const modules = ["bienvenue", "modération", "maintenance", "owner", "fun", "help"];
 
 for (const mod of modules) {
   const filePath = path.join(__dirname, `${mod}.js`);
