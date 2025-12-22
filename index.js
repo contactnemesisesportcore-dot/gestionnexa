@@ -1,5 +1,5 @@
 // ===============================
-// NexaBot - INDEX.JS CLEAN (FIX)
+// NexaBot - INDEX.JS CLEAN (FIXED)
 // ===============================
 
 require("dotenv").config();
@@ -30,61 +30,48 @@ const PREFIX = "+"; // Préfixe unique
 // CHARGEMENT DES COMMANDES
 // ===============================
 const commandsPath = path.join(__dirname, "commands");
-if (!fs.existsSync(commandsPath)) fs.mkdirSync(commandsPath);
+
+if (!fs.existsSync(commandsPath)) {
+  fs.mkdirSync(commandsPath);
+  console.log("📁 Dossier commands créé.");
+}
 
 for (const file of fs.readdirSync(commandsPath)) {
   if (!file.endsWith(".js")) continue;
 
-  const cmd = require(`./commands/${file}`);
-
-  if (!cmd.name || typeof cmd.run !== "function") {
-    console.log(`⚠ Commande invalide ignorée : ${file}`);
-    continue;
-  }
-
-  client.commands.set(cmd.name, cmd);
-  console.log(`📦 Commande chargée : +${cmd.name}`);
-}
-
-// ===============================
-// CHARGEMENT DES MODULES (EVENTS)
-// ===============================
-const modules = ["bienvenue", "modération", "maintenance", "owner"];
-
-for (const mod of modules) {
-  const filePath = path.join(__dirname, `${mod}.js`);
-  if (!fs.existsSync(filePath)) {
-    console.log(`⚠ Module introuvable : ${mod}.js`);
-    continue;
-  }
-
   try {
-    const moduleFile = require(filePath);
-    if (typeof moduleFile.init === "function") {
-      moduleFile.init(client);
-      console.log(`🔧 Module chargé : ${mod}`);
-    } else {
-      console.log(`⚠ ${mod}.js n’a pas de init(client)`);
+    const cmd = require(`./commands/${file}`);
+
+    if (!cmd.name || typeof cmd.run !== "function") {
+      console.log(`⚠ Commande ignorée (invalide) : ${file}`);
+      continue;
     }
+
+    client.commands.set(cmd.name.toLowerCase(), cmd);
+    console.log(`📦 Commande chargée : +${cmd.name}`);
   } catch (err) {
-    console.error(`❌ Erreur module ${mod} :`, err);
+    console.error(`❌ Erreur chargement commande ${file}`, err);
   }
 }
 
 // ===============================
-// MESSAGECREATE → COMMANDES PREFIX "+"
+// MESSAGECREATE → COMMANDES PREFIX
 // ===============================
 client.on("messageCreate", async message => {
-  if (!message.guild || message.author.bot) return;
+  if (!message.guild) return;
+  if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const cmdName = args.shift()?.toLowerCase();
 
+  if (!cmdName) return;
+
   const cmd = client.commands.get(cmdName);
+
   if (!cmd) {
     return message.reply(
-      `❌ Commande inconnue.\nFais \`${PREFIX}fun\` pour voir les commandes.`
+      `❌ Commande inconnue.\nUtilise \`${PREFIX}owner\` pour voir les commandes disponibles.`
     ).catch(() => {});
   }
 
@@ -92,18 +79,18 @@ client.on("messageCreate", async message => {
     await cmd.run(client, message, args);
   } catch (err) {
     console.error("❌ Erreur commande :", err);
-    message.reply("❌ Une erreur est survenue.").catch(() => {});
+    message.reply("❌ Une erreur est survenue lors de l’exécution.").catch(() => {});
   }
 });
 
 // ===============================
-// STATUT — STREAMING FIXE
+// STATUT
 // ===============================
-client.once("ready", async () => {
+client.once("ready", () => {
   console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
-  const guild = client.guilds.cache.get("1443299228020506779");
-  const memberCount = guild?.memberCount || 0;
+  const guild = client.guilds.cache.get(CONFIG.guildID);
+  const memberCount = guild ? guild.memberCount : 0;
 
   client.user.setActivity(`NexaWin • ${memberCount} membres`, {
     type: ActivityType.Streaming,
@@ -112,7 +99,7 @@ client.once("ready", async () => {
 });
 
 // ===============================
-// RENDER KEEP-ALIVE
+// KEEP ALIVE (RENDER / VPS)
 // ===============================
 const app = express();
 app.get("/", (_, res) => res.send("NexaBot • ONLINE"));
