@@ -76,7 +76,6 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 En restant membre du serveur Nexa, vous déclarez avoir lu, compris et accepté toutes les conditions présentées dans ce règlement et les TOS. Le non-respect de ces règles entraîne automatiquement l’application des sanctions prévues.
 `;
 
-// Stockage de l'état des utilisateurs
 const userStates = new Map();
 
 module.exports = {
@@ -93,9 +92,8 @@ module.exports = {
     async handleNewMember(member) {
         const guild = member.guild;
 
-        // Crée le salon privé
         const channel = await guild.channels.create({
-            name: `accueil-${member.user.username}`,
+            name: `👋-accueil-${member.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
@@ -106,36 +104,35 @@ module.exports = {
 
         if (!channel) return;
 
-        // Initialisation de l’état
         userStates.set(member.id, { step: 0, channelId: channel.id });
 
-        // Message de bienvenue
         const welcomeEmbed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle('Bienvenue sur Nexa Esports !')
-            .setDescription(`Hello <@${member.id}> ! Bienvenue sur le serveur officiel de __Nexa Esports__.\nTu pourras discuter, jouer, participer à des événements et suivre l'actualité de l'équipe.`);
+            .setColor('#8A2BE2') // violet
+            .setTitle('🎉 Bienvenue sur Nexa Esports !')
+            .setDescription(`Hello <@${member.id}> ! Bienvenue sur le serveur officiel de __Nexa Esports__.\nTu pourras discuter, jouer, participer à des événements et suivre l'actualité de l'équipe. ✨`);
 
         await channel.send({ embeds: [welcomeEmbed] });
 
-        // Commence le flow
         await this.sendNotificationStep(member, channel);
     },
 
     async sendNotificationStep(member, channel) {
         const menu = new StringSelectMenuBuilder()
             .setCustomId('accueil_notifications')
-            .setPlaceholder('Choisis tes notifications')
+            .setPlaceholder('📣 Choisis tes notifications (tu peux en choisir plusieurs)')
+            .setMinValues(1) // obligatoire de choisir au moins 1
+            .setMaxValues(3) // peut choisir jusqu’à 3
             .addOptions([
-                { label: 'Annonces', value: 'annonces' },
-                { label: 'Tournois', value: 'tournois' },
-                { label: 'Réseaux', value: 'reseaux' },
+                { label: '📢 Annonces', value: 'annonces', emoji: '📢' },
+                { label: '🏆 Tournois', value: 'tournois', emoji: '🏆' },
+                { label: '🌐 Réseaux', value: 'reseaux', emoji: '🌐' },
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
         const embed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle('Notifications')
-            .setDescription('Sélectionne les notifications que tu souhaites recevoir pour commencer.');
+            .setColor('#8A2BE2')
+            .setTitle('📣 Notifications')
+            .setDescription('Sélectionne les notifications que tu souhaites recevoir pour bien commencer ! Tu peux en choisir plusieurs. ✨');
 
         await channel.send({ embeds: [embed], components: [row] });
     },
@@ -143,16 +140,16 @@ module.exports = {
     async sendGenreStep(member, channel) {
         const menu = new StringSelectMenuBuilder()
             .setCustomId('accueil_genre')
-            .setPlaceholder('Quel est ton genre ?')
+            .setPlaceholder('👤 Quel est ton genre ?')
             .addOptions([
-                { label: 'Femme', value: 'femme' },
-                { label: 'Homme', value: 'homme' },
+                { label: '👩 Femme', value: 'femme', emoji: '👩' },
+                { label: '👨 Homme', value: 'homme', emoji: '👨' },
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
         const embed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle('Genre')
+            .setColor('#8A2BE2')
+            .setTitle('👤 Genre')
             .setDescription('Sélectionne ton genre pour personnaliser ton expérience.');
 
         await channel.send({ embeds: [embed], components: [row] });
@@ -160,13 +157,13 @@ module.exports = {
 
     async sendNexaStep(member, channel) {
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('accueil_nexaOui').setLabel('Oui').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('accueil_nexaNon').setLabel('Non').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('accueil_nexaOui').setLabel('✅ Oui').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('accueil_nexaNon').setLabel('❌ Non').setStyle(ButtonStyle.Danger)
         );
 
         const embed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle('Préfixe Nexa')
+            .setColor('#8A2BE2')
+            .setTitle('✨ Préfixe Nexa')
             .setDescription('Veux-tu ajouter le tag Nexa devant ton pseudo ?');
 
         await channel.send({ embeds: [embed], components: [row] });
@@ -174,12 +171,12 @@ module.exports = {
 
     async sendRegleStep(member, channel) {
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('accueil_regleAccepte').setLabel('J\'accepte le règlement').setStyle(ButtonStyle.Primary)
+            new ButtonBuilder().setCustomId('accueil_regleAccepte').setLabel('📜 J\'accepte le règlement').setStyle(ButtonStyle.Primary)
         );
 
         const embed = new EmbedBuilder()
-            .setColor('#5865F2')
-            .setTitle('Règlement')
+            .setColor('#8A2BE2')
+            .setTitle('📜 Règlement')
             .setDescription(reglementTexte);
 
         await channel.send({ embeds: [embed], components: [row] });
@@ -198,17 +195,17 @@ module.exports = {
                     if (value === 'tournois') await interaction.member.roles.add(roles.tournois);
                     if (value === 'reseaux') await interaction.member.roles.add(roles.reseaux);
                 }
-                await interaction.reply({ content: 'Notifications enregistrées !', ephemeral: true });
+                await interaction.reply({ content: '✅ Notifications enregistrées !', ephemeral: true });
                 state.step = 1;
                 await this.sendGenreStep(interaction.member, channel);
             } else if (interaction.customId === 'accueil_genre' && state.step === 1) {
                 if (interaction.values[0] === 'femme') await interaction.member.roles.add(roles.femme);
                 if (interaction.values[0] === 'homme') await interaction.member.roles.add(roles.homme);
-                await interaction.reply({ content: 'Genre enregistré !', ephemeral: true });
+                await interaction.reply({ content: '✅ Genre enregistré !', ephemeral: true });
                 state.step = 2;
                 await this.sendNexaStep(interaction.member, channel);
             } else {
-                await interaction.reply({ content: 'Tu dois suivre les étapes dans l’ordre !', ephemeral: true });
+                await interaction.reply({ content: '⚠ Tu dois suivre les étapes dans l’ordre !', ephemeral: true });
             }
         }
 
@@ -216,21 +213,21 @@ module.exports = {
             if (state.step === 2 && interaction.customId.startsWith('accueil_nexa')) {
                 if (interaction.customId === 'accueil_nexaOui') {
                     await interaction.member.setNickname(`Nexa ${interaction.member.user.username}`).catch(() => {});
-                    await interaction.reply({ content: 'Ton pseudo a été modifié avec Nexa !', ephemeral: true });
+                    await interaction.reply({ content: '✅ Ton pseudo a été modifié avec Nexa !', ephemeral: true });
                 } else {
-                    await interaction.reply({ content: 'Aucun changement de pseudo effectué.', ephemeral: true });
+                    await interaction.reply({ content: '❌ Aucun changement de pseudo effectué.', ephemeral: true });
                 }
                 state.step = 3;
                 await this.sendRegleStep(interaction.member, channel);
             } else if (state.step === 3 && interaction.customId === 'accueil_regleAccepte') {
                 await interaction.member.roles.add(roles.regleAccepte);
-                await interaction.reply({ content: 'Merci d’avoir accepté le règlement ! Le salon sera supprimé.', ephemeral: true });
+                await interaction.reply({ content: '🎉 Merci d’avoir accepté le règlement ! Le salon sera supprimé.', ephemeral: true });
                 setTimeout(async () => {
                     await channel.delete().catch(console.error);
                     userStates.delete(interaction.user.id);
                 }, 5000);
             } else {
-                await interaction.reply({ content: 'Tu dois suivre les étapes dans l’ordre !', ephemeral: true });
+                await interaction.reply({ content: '⚠ Tu dois suivre les étapes dans l’ordre !', ephemeral: true });
             }
         }
     }
