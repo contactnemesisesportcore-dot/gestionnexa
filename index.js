@@ -26,8 +26,9 @@ const PREFIX = "+"; // Préfixe officiel
 // 🔁 CHARGEMENT RÉCURSIF DES COMMANDES
 // ===============================
 function loadCommands(dirPath) {
-  const files = fs.readdirSync(dirPath);
+  if (!fs.existsSync(dirPath)) return;
 
+  const files = fs.readdirSync(dirPath);
   for (const file of files) {
     const fullPath = path.join(dirPath, file);
 
@@ -38,15 +39,17 @@ function loadCommands(dirPath) {
 
     if (!file.endsWith(".js")) continue;
 
-    const command = require(fullPath);
-
-    if (!command.name || typeof command.run !== "function") {
-      console.log(`⚠ Commande invalide ignorée : ${fullPath}`);
-      continue;
+    try {
+      const command = require(fullPath);
+      if (!command.name || typeof command.run !== "function") {
+        console.log(`⚠ Commande invalide ignorée : ${fullPath}`);
+        continue;
+      }
+      client.commands.set(command.name, command);
+      console.log(`📦 Commande chargée : +${command.name}`);
+    } catch (err) {
+      console.error(`❌ Erreur lors du chargement de la commande : ${fullPath}`, err);
     }
-
-    client.commands.set(command.name, command);
-    console.log(`📦 Commande chargée : +${command.name}`);
   }
 }
 
@@ -75,26 +78,25 @@ for (const mod of modules) {
 }
 
 // ===============================
-// MESSAGECREATE → COMMANDES PREFIX "+"
- // ===============================
-client.on("messageCreate", async message => {
+// MESSAGECREATE → COMMANDES PREFIX "+" 
+// ===============================
+client.on("messageCreate", async (message) => {
   if (!message.guild || message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
   const commandName = args.shift()?.toLowerCase();
 
+  if (!commandName) return;
+
   const command = client.commands.get(commandName);
-  if (!command) {
-    // Message simplifié : juste retour si commande inconnue
-    return; // ❌ plus de message qui pollue
-  }
+  if (!command) return; // Ignore les commandes inconnues
 
   try {
     await command.run(client, message, args);
   } catch (err) {
     console.error(`❌ Erreur commande ${commandName} :`, err);
-    message.reply("❌ Une erreur est survenue lors de l'exécution.").catch(() => {});
+    message.reply("❌ Une erreur est survenue lors de l'exécution de la commande.").catch(() => {});
   }
 });
 
@@ -105,7 +107,7 @@ client.once("ready", async () => {
   console.log(`✅ Connecté en tant que ${client.user.tag}`);
 
   const guild = client.guilds.cache.get(CONFIG.guildID);
-  const memberCount = guild?.memberCount || 0;
+  const memberCount = guild?.memberCount ?? 0;
 
   client.user.setActivity(`NexaWin • ${memberCount} membres`, {
     type: ActivityType.Streaming,
@@ -118,9 +120,9 @@ client.once("ready", async () => {
 // ===============================
 const app = express();
 app.get("/", (_, res) => res.send("NexaBot • ONLINE"));
-app.listen(process.env.PORT || 3000);
+app.listen(process.env.PORT || 3000, () => console.log("🌐 Serveur web actif."));
 
 // ===============================
 // LOGIN
 // ===============================
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN).catch(err => console.error("❌ Impossible de se connecter :", err));
