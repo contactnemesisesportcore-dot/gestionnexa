@@ -1,6 +1,7 @@
 const { 
     ActionRowBuilder, ButtonBuilder, ButtonStyle, 
-    StringSelectMenuBuilder, PermissionsBitField, EmbedBuilder, ChannelType 
+    StringSelectMenuBuilder, PermissionsBitField, 
+    EmbedBuilder, ChannelType 
 } = require('discord.js');
 
 // Rôles
@@ -79,6 +80,16 @@ En restant membre du serveur Nexa, vous déclarez avoir lu, compris et accepté 
 const userStates = new Map();
 
 module.exports = {
+    init(client) {
+        client.on('guildMemberAdd', async (member) => {
+            this.handleNewMember(member);
+        });
+
+        client.on('interactionCreate', async (interaction) => {
+            this.handleInteraction(interaction);
+        });
+    },
+
     async handleNewMember(member) {
         const guild = member.guild;
 
@@ -90,7 +101,7 @@ module.exports = {
                 { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: member.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
                 { id: member.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
-            ],
+            ]
         }).catch(console.error);
 
         if (!channel) return;
@@ -178,10 +189,8 @@ module.exports = {
         const state = userStates.get(interaction.user.id);
         if (!state) return;
         const channel = interaction.guild.channels.cache.get(state.channelId);
-
         if (!channel) return;
 
-        // Menus déroulants
         if (interaction.isStringSelectMenu()) {
             if (interaction.customId === 'accueil_notifications' && state.step === 0) {
                 for (const value of interaction.values) {
@@ -203,7 +212,6 @@ module.exports = {
             }
         }
 
-        // Boutons
         if (interaction.isButton()) {
             if (state.step === 2 && interaction.customId.startsWith('accueil_nexa')) {
                 if (interaction.customId === 'accueil_nexaOui') {
