@@ -1,4 +1,7 @@
- const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { 
+    ActionRowBuilder, ButtonBuilder, ButtonStyle, 
+    StringSelectMenuBuilder, PermissionsBitField, EmbedBuilder, ChannelType 
+} = require('discord.js');
 
 // Rôles
 const roles = {
@@ -24,11 +27,9 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 - Respect mutuel obligatoire
   - Aucun propos discriminatoire, raciste, sexiste, homophobe, transphobe, ou incitant à la haine ne sera toléré.
   - Les attaques personnelles, harcèlement, intimidation ou trolling excessif sont interdits.
-
 - Langage et contenu
   - Le langage vulgaire est toléré dans une limite raisonnable et non dirigé contre un membre ou un groupe.
   - Les contenus choquants, violents, pornographiques ou illégaux sont strictement interdits.
-
 - Spam et publicité
   - Le spam, les messages répétitifs ou non sollicités sont interdits.
   - La publicité pour d’autres serveurs Discord, produits, services ou liens commerciaux nécessite une autorisation préalable des modérateurs.
@@ -37,7 +38,6 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 - Données personnelles
   - Ne partagez jamais d’informations personnelles vous concernant ou concernant d’autres personnes.
   - Le partage d’informations privées ou confidentielles est strictement interdit.
-
 - Comptes et accès
   - Chaque utilisateur doit utiliser un compte Discord unique et réel.
   - Le piratage, le vol de compte ou l’usurpation d’identité est interdit et pourra être signalé aux autorités compétentes.
@@ -46,7 +46,6 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 - Respect des droits d’auteur
   - Toute publication (images, vidéos, musique, textes, code) doit respecter le droit d’auteur.
   - Le plagiat ou l’utilisation non autorisée de contenus tiers peut entraîner la suppression immédiate du contenu et des sanctions.
-
 - Créations internes
   - Les contenus créés et publiés sur le serveur peuvent être utilisés par l’équipe pour des événements, archives ou publications internes, sauf mention contraire de l’auteur.
 
@@ -54,7 +53,6 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 - Canaux textuels et vocaux
   - Respectez la thématique de chaque canal.
   - Les discussions hors-sujet doivent se limiter aux salons appropriés.
-
 - Bots et automatisation
   - L’utilisation de bots personnels ou scripts automatisés sans autorisation est interdite.
 
@@ -62,7 +60,6 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 - Système de sanctions
   - Avertissement verbal → Avertissement écrit → Suspension temporaire → Expulsion définitive.
   - Les modérateurs appliquent les sanctions à leur discrétion selon la gravité des infractions.
-
 - Contestation
   - Toute contestation doit être adressée à l’équipe de modération via message privé.
   - Les décisions de l’équipe sont finales et non négociables sur le serveur public.
@@ -78,23 +75,25 @@ Bienvenue sur le serveur Discord Nexa. En rejoignant ce serveur, vous acceptez p
 En restant membre du serveur Nexa, vous déclarez avoir lu, compris et accepté toutes les conditions présentées dans ce règlement et les TOS. Le non-respect de ces règles entraîne automatiquement l’application des sanctions prévues.
 `;
 
-// Stockage des étapes des utilisateurs
+// Stockage de l'état des utilisateurs
 const userStates = new Map();
 
 module.exports = {
     async handleNewMember(member) {
         const guild = member.guild;
 
-        // Création du salon privé
+        // Crée le salon privé
         const channel = await guild.channels.create({
             name: `accueil-${member.user.username}`,
-            type: 0, // GUILD_TEXT
+            type: ChannelType.GuildText,
             permissionOverwrites: [
-                { id: guild.roles.everyone, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                 { id: member.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
                 { id: member.client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
             ],
-        });
+        }).catch(console.error);
+
+        if (!channel) return;
 
         // Initialisation de l’état
         userStates.set(member.id, { step: 0, channelId: channel.id });
@@ -103,11 +102,11 @@ module.exports = {
         const welcomeEmbed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle('Bienvenue sur Nexa Esports !')
-            .setDescription(`Hello <@${member.id}> ! Bienvenue sur le serveur Discord officiel de __Nexa Esports__.\n\nTu pourras discuter, jouer, participer à des événements, suivre l'actualité de l'équipe et rejoindre la team.`);
+            .setDescription(`Hello <@${member.id}> ! Bienvenue sur le serveur officiel de __Nexa Esports__.\nTu pourras discuter, jouer, participer à des événements et suivre l'actualité de l'équipe.`);
 
         await channel.send({ embeds: [welcomeEmbed] });
 
-        // Démarrage du flow
+        // Commence le flow
         await this.sendNotificationStep(member, channel);
     },
 
@@ -125,7 +124,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle('Notifications')
-            .setDescription('Sélectionne les notifications que tu souhaites recevoir pour bien commencer sur le serveur !');
+            .setDescription('Sélectionne les notifications que tu souhaites recevoir pour commencer.');
 
         await channel.send({ embeds: [embed], components: [row] });
     },
@@ -143,7 +142,7 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setColor('#5865F2')
             .setTitle('Genre')
-            .setDescription('Sélectionne ton genre. Cette information nous aide à personnaliser ton expérience.');
+            .setDescription('Sélectionne ton genre pour personnaliser ton expérience.');
 
         await channel.send({ embeds: [embed], components: [row] });
     },
@@ -178,8 +177,9 @@ module.exports = {
     async handleInteraction(interaction) {
         const state = userStates.get(interaction.user.id);
         if (!state) return;
-
         const channel = interaction.guild.channels.cache.get(state.channelId);
+
+        if (!channel) return;
 
         // Menus déroulants
         if (interaction.isStringSelectMenu()) {
