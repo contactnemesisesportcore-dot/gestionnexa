@@ -1,179 +1,127 @@
-const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-  ComponentType
-} = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "help",
-  description: "Menu d'aide du bot",
 
-  async run(client, message) {
+  async run(client, message, args) {
+    const category = args[0];
 
-    // ===============================
-    // EMBED PRINCIPAL
-    // ===============================
-    const mainEmbed = new EmbedBuilder()
-      .setColor("#b65cff")
-      .setTitle("📖 Menu d'aide — NexaBot")
-      .setDescription(
-        "Choisis une **catégorie** dans le menu ci-dessous.\n\n" +
-        "⏱ Le menu se ferme automatiquement après **60 secondes** d'inactivité."
-      )
-      .setFooter({ text: "NexaBot • Help" });
+    const embed = new EmbedBuilder()
+      .setColor("#7b2cff")
+      .setThumbnail(client.user.displayAvatarURL())
+      .setFooter({ text: `Préfixe : +` })
+      .setTimestamp();
 
-    // ===============================
-    // MENU DÉROULANT
-    // ===============================
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId("help_menu")
-      .setPlaceholder("📂 Sélectionne une catégorie")
-      .addOptions([
-        {
-          label: "🎉 Fun",
-          value: "fun",
-          description: "Commandes fun du bot"
-        },
-        {
-          label: "📊 Stats",
-          value: "stats",
-          description: "Statistiques serveur & membres"
-        },
-        {
-          label: "🛠 Utiles",
-          value: "utils",
-          description: "Commandes utiles"
-        },
-        {
-          label: "👑 Owner",
-          value: "owner",
-          description: "Commandes réservées au propriétaire"
-        }
-      ]);
+    // =========================
+    // MENU PRINCIPAL
+    // =========================
+    if (!category) {
+      embed
+        .setTitle("📘 Menu d’aide — NexaBot")
+        .setDescription(
+          "**Catégories disponibles :**\n\n" +
+          "`+help fun` 🎉\n" +
+          "`+help stats` 📊\n" +
+          "`+help modération` 🛡️\n" +
+          "`+help owner` 👑\n\n" +
+          "👉 Utilise `+help <catégorie>`"
+        );
 
-    const row = new ActionRowBuilder().addComponents(menu);
+      return message.reply({ embeds: [embed] });
+    }
 
-    const msg = await message.reply({
-      embeds: [mainEmbed],
-      components: [row]
-    });
+    // =========================
+    // FUN
+    // =========================
+    if (category === "fun") {
+      embed
+        .setTitle("🎉 Commandes Fun")
+        .setDescription(
+          "`+ping` → Ping du bot\n" +
+          "`+avatar [@user]` → Avatar\n" +
+          "`+say <texte>` → Le bot parle\n" +
+          "`+roll` → Nombre aléatoire\n" +
+          "`+8ball <question>` → Boule magique\n" +
+          "`+hug @user`\n" +
+          "`+slap @user`\n" +
+          "`+coinflip`\n"
+        );
 
-    // ===============================
-    // COLLECTOR (60s)
-    // ===============================
-    const collector = msg.createMessageComponentCollector({
-      componentType: ComponentType.StringSelect,
-      time: 60_000
-    });
+      return message.reply({ embeds: [embed] });
+    }
 
-    collector.on("collect", async interaction => {
+    // =========================
+    // STATS
+    // =========================
+    if (category === "stats") {
+      embed
+        .setTitle("📊 Commandes Stats")
+        .setDescription(
+          "`+stats` → Menu stats\n" +
+          "`+stats server`\n" +
+          "`+stats user [@user]`\n" +
+          "`+stats bot`\n" +
+          "`+stats roles`\n" +
+          "`+stats channels`\n" +
+          "`+stats voice`\n" +
+          "`+stats boosts`\n" +
+          "`+stats emojis`\n" +
+          "`+stats created`\n" +
+          "`+stats owner`\n" +
+          "`+stats online`\n"
+        );
 
-      // 🔒 Seul l'auteur peut interagir
-      if (interaction.user.id !== message.author.id) {
-        return interaction.reply({
-          content: "❌ Ce menu ne t'est pas destiné.",
-          ephemeral: true
-        });
+      return message.reply({ embeds: [embed] });
+    }
+
+    // =========================
+    // MODÉRATION
+    // =========================
+    if (category === "modération" || category === "moderation") {
+      embed
+        .setTitle("🛡️ Commandes Modération")
+        .setDescription(
+          "`+clear <nombre>` → Supprimer messages\n" +
+          "`+warn @user <raison>`\n" +
+          "`+warns @user`\n" +
+          "`+unwarn @user`\n" +
+          "`+mute @user <temps>`\n" +
+          "`+unmute @user`\n" +
+          "`+kick @user <raison>`\n" +
+          "`+ban @user <raison>`\n" +
+          "`+unban <id>`\n"
+        );
+
+      return message.reply({ embeds: [embed] });
+    }
+
+    // =========================
+    // OWNER
+    // =========================
+    if (category === "owner") {
+      // sécurité : owner only
+      if (message.author.id !== message.guild.ownerId) {
+        return message.reply("❌ Cette catégorie est réservée au propriétaire du serveur.");
       }
 
-      const value = interaction.values[0];
-      let embed;
+      embed
+        .setTitle("👑 Commandes Owner")
+        .setDescription(
+          "`+maintenance on/off`\n" +
+          "`+setstatus <texte>`\n" +
+          "`+setactivity <texte>`\n" +
+          "`+reload`\n" +
+          "`+shutdown`\n" +
+          "`+eval <code>`\n" +
+          "`+sayowner <texte>`\n"
+        );
 
-      // ===============================
-      // FUN
-      // ===============================
-      if (value === "fun") {
-        embed = new EmbedBuilder()
-          .setColor("#b65cff")
-          .setTitle("🎉 Commandes FUN")
-          .setDescription(
-            "`+fun` → Menu fun\n" +
-            "`+fun ping`\n" +
-            "`+fun avatar`\n" +
-            "`+fun dice`\n" +
-            "`+fun coinflip`\n" +
-            "`+fun hug`\n" +
-            "`+fun kiss`\n" +
-            "`+fun slap`\n" +
-            "`+fun rate`\n" +
-            "`+fun joke`\n"
-          );
-      }
+      return message.reply({ embeds: [embed] });
+    }
 
-      // ===============================
-      // STATS
-      // ===============================
-      if (value === "stats") {
-        embed = new EmbedBuilder()
-          .setColor("#b65cff")
-          .setTitle("📊 Commandes STATS")
-          .setDescription(
-            "`+stats server`\n" +
-            "`+stats user`\n" +
-            "`+stats messages`\n" +
-            "`+stats vocal`\n"
-          );
-      }
-
-      // ===============================
-      // UTILS
-      // ===============================
-      if (value === "utils") {
-        embed = new EmbedBuilder()
-          .setColor("#b65cff")
-          .setTitle("🛠 Commandes UTILES")
-          .setDescription(
-            "`+help`\n" +
-            "`+ping`\n" +
-            "`+uptime`\n" +
-            "`+botinfo`\n"
-          );
-      }
-
-      // ===============================
-      // OWNER (PROTÉGÉ)
-      // ===============================
-      if (value === "owner") {
-
-        // ❌ Si pas owner du serveur
-        if (interaction.guild.ownerId !== interaction.user.id) {
-          return interaction.reply({
-            content: "⛔ Cette catégorie est réservée au **propriétaire du serveur**.",
-            ephemeral: true
-          });
-        }
-
-        embed = new EmbedBuilder()
-          .setColor("#ff3c6e")
-          .setTitle("👑 Commandes OWNER")
-          .setDescription(
-            "`+owner`\n" +
-            "`+owner say`\n" +
-            "`+owner status`\n" +
-            "`+owner maintenance on/off`\n" +
-            "`+owner restart`\n" +
-            "`+owner shutdown`\n"
-          );
-      }
-
-      await interaction.update({
-        embeds: [embed],
-        components: [row]
-      });
-    });
-
-    // ===============================
-    // FIN — DÉSACTIVE LE MENU
-    // ===============================
-    collector.on("end", async () => {
-      const disabledRow = new ActionRowBuilder().addComponents(
-        menu.setDisabled(true)
-      );
-
-      await msg.edit({
-        components: [disabledRow]
-      }).catch(() => {});
-    });
+    // =========================
+    // ERREUR
+    // =========================
+    return message.reply("❌ Catégorie inconnue. Fais `+help`.");
   }
 };
