@@ -1,89 +1,33 @@
-const { EmbedBuilder } = require("discord.js");
-
 module.exports = {
   name: "owner",
-  description: "Commandes réservées au propriétaire",
+  description: "Commandes owner",
+  category: "owner",
 
   async run(client, message, args) {
-
-    // 🔐 SÉCURITÉ OWNER
-    if (message.guild.ownerId !== message.author.id) {
-      return message.reply("❌ Cette commande est réservée au propriétaire du serveur.");
+    if (message.author.id !== client.config.ownerID) {
+      return message.reply("❌ Owner uniquement.");
     }
 
-    // ===============================
-    // 📜 MENU OWNER
-    // ===============================
-    if (!args[0]) {
-      const embed = new EmbedBuilder()
-        .setColor("#ff3c6e")
-        .setTitle("👑 Commandes OWNER")
-        .setDescription(
-          "`+owner say <texte>` → Le bot parle\n" +
-          "`+owner status <texte>` → Change le statut\n" +
-          "`+owner maintenance on/off`\n" +
-          "`+owner restart`\n" +
-          "`+owner shutdown`\n"
-        )
-        .setFooter({ text: "Accès propriétaire uniquement" });
+    const sub = args[0];
 
-      return message.reply({ embeds: [embed] });
-    }
-
-    const sub = args[0].toLowerCase();
-
-    // ===============================
-    // 🗣 SAY
-    // ===============================
-    if (sub === "say") {
-      const text = args.slice(1).join(" ");
-      if (!text) return message.reply("❌ Texte manquant.");
-      return message.channel.send(text);
-    }
-
-    // ===============================
-    // 🎮 STATUS
-    // ===============================
-    if (sub === "status") {
-      const text = args.slice(1).join(" ");
-      if (!text) return message.reply("❌ Statut manquant.");
-
-      client.user.setActivity(text);
-      return message.reply("✅ Statut mis à jour.");
-    }
-
-    // ===============================
-    // 🛠 MAINTENANCE
-    // ===============================
-    if (sub === "maintenance") {
-      const state = args[1];
-      if (!["on", "off"].includes(state)) {
-        return message.reply("❌ Utilise `+owner maintenance on/off`");
-      }
-
+    if (!sub) {
       return message.reply(
-        state === "on"
-          ? "🛠 Maintenance **ACTIVÉE**"
-          : "✅ Maintenance **DÉSACTIVÉE**"
+        "**👑 Owner :**\n" +
+        "`setstatus, setactivity, reload, shutdown, eval, say`"
       );
     }
 
-    // ===============================
-    // 🔁 RESTART
-    // ===============================
-    if (sub === "restart") {
-      await message.reply("🔁 Redémarrage du bot...");
-      process.exit(0);
-    }
+    switch (sub) {
+      case "setstatus":
+        client.user.setPresence({ activities: [{ name: args.slice(1).join(" ") }] });
+        return message.reply("✅ Statut modifié");
 
-    // ===============================
-    // ⛔ SHUTDOWN
-    // ===============================
-    if (sub === "shutdown") {
-      await message.reply("⛔ Arrêt du bot.");
-      process.exit(0);
-    }
+      case "shutdown":
+        message.reply("🛑 Arrêt...");
+        process.exit();
 
-    return message.reply("❌ Sous-commande owner inconnue. Fais `+owner`.");
+      default:
+        return message.reply("❌ Owner inconnue.");
+    }
   }
 };
