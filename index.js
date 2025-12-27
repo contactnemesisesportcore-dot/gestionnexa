@@ -109,7 +109,7 @@ client.once("ready", async () => {
   const guild = client.guilds.cache.get(CONFIG.guildID);
   const memberCount = guild?.memberCount ?? 0;
 
-  client.user.setActivity(`NexaWin • ${memberCount} membres`, {
+  client.user.setActivity(`Je surveille les ${memberCount} membres`, {
     type: ActivityType.Streaming,
     url: CONFIG.streamURL
   });
